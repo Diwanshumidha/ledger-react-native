@@ -1,11 +1,12 @@
 import { useMemo, useState } from 'react';
 import { FlatList, Modal, Pressable, StyleSheet, View } from 'react-native';
-import Animated, { FadeIn, FadeOut, SlideInDown, SlideOutDown } from 'react-native-reanimated';
+import Animated, { SlideInDown, SlideOutDown } from 'react-native-reanimated';
 
 import { ThemedText } from '@/components/themed-text';
 import { Avatar } from '@/components/ui/avatar';
 import { PressableScale } from '@/components/ui/pressable-scale';
 import { TextField } from '@/components/ui/text-field';
+import { Duration, Ease, fadeIn, fadeOut } from '@/constants/motion';
 import { Radius, Spacing } from '@/constants/theme';
 import type { Account } from '@/domain/types';
 import { useTheme } from '@/hooks/use-theme';
@@ -45,14 +46,14 @@ export function AccountPickerSheet({
   return (
     <Modal visible={visible} transparent animationType="none" onRequestClose={onClose}>
       <Animated.View
-        entering={FadeIn.duration(160)}
-        exiting={FadeOut.duration(120)}
+        entering={fadeIn(0, Duration.base)}
+        exiting={fadeOut}
         style={[styles.backdrop, { backgroundColor: theme.overlay }]}>
         <Pressable accessibilityLabel="Dismiss" style={styles.flex} onPress={onClose} />
 
         <Animated.View
-          entering={SlideInDown.springify().damping(20)}
-          exiting={SlideOutDown.duration(180)}
+          entering={SlideInDown.duration(Duration.slow).easing(Ease)}
+          exiting={SlideOutDown.duration(Duration.base).easing(Ease)}
           style={[styles.sheet, { backgroundColor: theme.background, borderColor: theme.border }]}>
           <View style={[styles.grabber, { backgroundColor: theme.border }]} />
           <ThemedText style={styles.title}>{title}</ThemedText>

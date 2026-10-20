@@ -8,7 +8,8 @@ import Animated, {
 } from 'react-native-reanimated';
 
 import { ThemedText } from '@/components/themed-text';
-import { Radius, Spacing } from '@/constants/theme';
+import { Ease } from '@/constants/motion';
+import { FontFaces, Radius, Spacing } from '@/constants/theme';
 import { CurrencySymbol } from '@/domain/money';
 import { useTheme } from '@/hooks/use-theme';
 
@@ -42,10 +43,11 @@ export function AmountField({
       return;
     }
     shift.value = withSequence(
-      withTiming(-8, { duration: 55 }),
-      withTiming(8, { duration: 55 }),
-      withTiming(-5, { duration: 45 }),
-      withTiming(0, { duration: 45 }),
+      // A slow, small head-shake: enough to point at the field, not to jolt.
+      withTiming(-6, { duration: 90, easing: Ease }),
+      withTiming(5, { duration: 140, easing: Ease }),
+      withTiming(-2, { duration: 140, easing: Ease }),
+      withTiming(0, { duration: 160, easing: Ease }),
     );
   }, [shakeKey, shift]);
 
@@ -67,7 +69,9 @@ export function AmountField({
         animatedStyle,
         { backgroundColor: theme.backgroundElement, borderColor: theme.border },
       ]}>
-      <ThemedText style={[styles.symbol, { color }]}>{CurrencySymbol}</ThemedText>
+      <ThemedText face="display" style={[styles.symbol, { color }]}>
+        {CurrencySymbol}
+      </ThemedText>
       <TextInput
         value={value}
         onChangeText={(next) => onChangeText(next.replace(/[^0-9.]/g, ''))}
@@ -92,15 +96,18 @@ const styles = StyleSheet.create({
     paddingVertical: Spacing.three,
     paddingHorizontal: Spacing.four,
     borderRadius: Radius.large,
-    borderWidth: StyleSheet.hairlineWidth,
+    borderWidth: 1,
   },
   symbol: {
     fontSize: 30,
-    fontWeight: '600',
+    lineHeight: 36,
+    fontWeight: '500',
   },
   input: {
     fontSize: 40,
-    fontWeight: '700',
+    fontFamily: FontFaces.display[700],
+    fontVariant: ['tabular-nums'],
+    letterSpacing: -0.8,
     // `flexGrow: 0` keeps the field hugging the currency symbol instead of
     // stretching to the full width, which would strand the ₹ on the far left.
     flexGrow: 0,

@@ -1,13 +1,14 @@
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { useMemo, useState } from 'react';
-import { ScrollView, StyleSheet, View } from 'react-native';
-import Animated, { FadeInDown } from 'react-native-reanimated';
+import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import Animated from 'react-native-reanimated';
 
 import { ThemedText } from '@/components/themed-text';
 import { Button } from '@/components/ui/button';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { EmptyState } from '@/components/ui/empty-state';
 import { Screen } from '@/components/ui/screen';
+import { Duration, riseIn } from '@/constants/motion';
 import { Radius, Spacing } from '@/constants/theme';
 import { totalFor } from '@/domain/accounting';
 import { formatDateLong, formatTime } from '@/domain/date';
@@ -49,19 +50,35 @@ export default function EntryDetailScreen() {
 
   return (
     <Screen edges={['bottom']}>
-      <Stack.Screen options={{ title: `Voucher #${entry.voucherNo}` }} />
+      <Stack.Screen
+        options={{
+          title: `Voucher #${entry.voucherNo}`,
+          headerRight: () => (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Edit entry"
+              onPress={() => router.push(`/entry/new?editId=${entry.id}`)}
+              hitSlop={12}
+              style={styles.headerAction}>
+              <ThemedText type="smallBold">Edit</ThemedText>
+            </Pressable>
+          ),
+        }}
+      />
 
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        <Animated.View entering={FadeInDown.duration(260)} style={styles.header}>
+        <Animated.View entering={riseIn(0, 6, Duration.base)} style={styles.header}>
           <ThemedText style={styles.amount}>{formatMoney(total)}</ThemedText>
           <ThemedText type="small" themeColor="textSecondary">
             {formatDateLong(entry.date)} · recorded {formatTime(entry.createdAt)}
           </ThemedText>
-          {entry.narration ? <ThemedText style={styles.narration}>{entry.narration}</ThemedText> : null}
+          {entry.narration ? (
+            <ThemedText style={styles.narration}>{entry.narration}</ThemedText>
+          ) : null}
         </Animated.View>
 
         <Animated.View
-          entering={FadeInDown.delay(80).duration(260)}
+          entering={riseIn(80, 6)}
           style={[styles.card, { backgroundColor: theme.card, borderColor: theme.border }]}>
           {debits.map((posting, index) => (
             <PostingRow
@@ -93,12 +110,10 @@ export default function EntryDetailScreen() {
           </View>
         </Animated.View>
 
-        <Button
-          label="Delete entry"
-          variant="danger"
-          onPress={() => setConfirmingDelete(true)}
-          style={styles.deleteButton}
-        />
+        <View style={styles.actions}>
+          <Button label="Edit entry" onPress={() => router.push(`/entry/new?editId=${entry.id}`)} />
+          <Button label="Delete entry" variant="danger" onPress={() => setConfirmingDelete(true)} />
+        </View>
       </ScrollView>
 
       <ConfirmDialog
@@ -145,6 +160,10 @@ function PostingRow({ side, color, name, amount, indent = false }: PostingRowPro
 }
 
 const styles = StyleSheet.create({
+  headerAction: {
+    // The web header places this flush against the viewport edge.
+    paddingHorizontal: Spacing.three,
+  },
   content: {
     paddingTop: Spacing.four,
     paddingBottom: Spacing.four,
@@ -188,7 +207,8 @@ const styles = StyleSheet.create({
     borderTopWidth: StyleSheet.hairlineWidth,
     paddingTop: Spacing.two,
   },
-  deleteButton: {
+  actions: {
+    gap: Spacing.two,
     marginTop: Spacing.two,
   },
 });

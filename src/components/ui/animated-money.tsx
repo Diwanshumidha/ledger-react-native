@@ -1,12 +1,14 @@
 import { useEffect, useRef, useState } from 'react';
 
+import { useReducedMotion } from 'react-native-reanimated';
+
 import { ThemedText, type ThemedTextProps } from '@/components/themed-text';
+import { Duration } from '@/constants/motion';
 import { formatMoney, type Money } from '@/domain/money';
 
-const DURATION_MS = 520;
-
-function easeOutCubic(t: number): number {
-  return 1 - Math.pow(1 - t, 3);
+/** Long, soft tail: most of the distance early, the last digits settle slowly. */
+function easeOutQuart(t: number): number {
+  return 1 - Math.pow(1 - t, 4);
 }
 
 /**
@@ -21,6 +23,7 @@ export function useCountUp(value: Money): Money {
   const [displayed, setDisplayed] = useState(value);
   const fromRef = useRef(value);
   const frameRef = useRef<number | null>(null);
+  const reduceMotion = useReducedMotion();
 
   useEffect(() => {
     const from = fromRef.current;
@@ -28,12 +31,17 @@ export function useCountUp(value: Money): Money {
     if (from === to) {
       return;
     }
+    if (reduceMotion) {
+      // Callers show `value` directly; just keep the start point current.
+      fromRef.current = to;
+      return;
+    }
 
     const startedAt = performance.now();
 
     const step = (now: number) => {
-      const progress = Math.min(1, (now - startedAt) / DURATION_MS);
-      const eased = easeOutCubic(progress);
+      const progress = Math.min(1, (now - startedAt) / Duration.count);
+      const eased = easeOutQuart(progress);
       const current = Math.round(from + (to - from) * eased);
       setDisplayed(current);
 
@@ -55,9 +63,9 @@ export function useCountUp(value: Money): Money {
       fromRef.current = to;
       setDisplayed(to);
     };
-  }, [value]);
+  }, [reduceMotion, value]);
 
-  return displayed;
+  return reduceMotion ? value : displayed;
 }
 
 export interface AnimatedMoneyProps extends ThemedTextProps {
@@ -68,5 +76,9 @@ export interface AnimatedMoneyProps extends ThemedTextProps {
 
 export function AnimatedMoney({ value, animate = true, ...rest }: AnimatedMoneyProps) {
   const animated = useCountUp(value);
-  return <ThemedText {...rest}>{formatMoney(animate ? animated : value)}</ThemedText>;
+  return (
+    <ThemedText type="figure" {...rest}>
+      {formatMoney(animate ? animated : value)}
+    </ThemedText>
+  );
 }

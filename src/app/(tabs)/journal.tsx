@@ -1,14 +1,15 @@
 import { useRouter } from 'expo-router';
 import { useMemo } from 'react';
 import { SectionList, StyleSheet, useWindowDimensions, View } from 'react-native';
-import Animated, { FadeIn, FadeInDown } from 'react-native-reanimated';
+import Animated from 'react-native-reanimated';
 
 import { JournalEntryCard } from '@/components/ledger/journal-entry-card';
 import { ThemedText } from '@/components/themed-text';
 import { EmptyState } from '@/components/ui/empty-state';
-import { Fab } from '@/components/ui/fab';
+import { IconButton } from '@/components/ui/icon-button';
 import { Screen } from '@/components/ui/screen';
-import { BottomTabInset, Radius, Spacing, TopBarInset } from '@/constants/theme';
+import { fadeIn, riseIn, rowIn } from '@/constants/motion';
+import { BottomTabInset, Spacing, TopBarInset } from '@/constants/theme';
 import { buildTrialBalance, sortChronologically, totalFor } from '@/domain/accounting';
 import { formatRelativeDay } from '@/domain/date';
 import { formatMoney } from '@/domain/money';
@@ -78,17 +79,24 @@ export default function JournalScreen() {
 
   return (
     <Screen>
-      <View style={styles.header}>
-        <ThemedText style={styles.title}>Journal</ThemedText>
-        <ThemedText type="small" themeColor="textSecondary">
-          Every entry, in double-entry form
-        </ThemedText>
-      </View>
+      <Animated.View entering={riseIn(0, 6)} style={styles.header}>
+        <View style={styles.headerText}>
+          <ThemedText type="title">Journal</ThemedText>
+          <ThemedText type="small" themeColor="textSecondary">
+            Every entry, in double-entry form
+          </ThemedText>
+        </View>
+        <IconButton
+          glyph="+"
+          accessibilityLabel="New entry"
+          onPress={() => router.push('/entry/new')}
+        />
+      </Animated.View>
 
       {entries.length > 0 ? (
         <Animated.View
-          entering={FadeIn.duration(300)}
-          style={[styles.summary, { backgroundColor: theme.backgroundElement }]}>
+          entering={fadeIn(80)}
+          style={[styles.summary, { borderColor: theme.border }]}>
           <SummaryCell label="Entries" value={String(entries.length)} />
           <View style={[styles.summaryDivider, { backgroundColor: theme.border }]} />
           <SummaryCell label="Turnover" value={formatMoney(turnover)} />
@@ -109,22 +117,22 @@ export default function JournalScreen() {
         stickySectionHeadersEnabled={false}
         renderSectionHeader={({ section }) => (
           <View style={styles.sectionHeader}>
-            <ThemedText type="smallBold" style={styles.sectionTitle}>
-              {section.title}
-            </ThemedText>
+            <View style={styles.sectionTitleColumn}>
+              <ThemedText type="heading" style={styles.sectionTitle}>
+                {section.title}
+              </ThemedText>
+              <ThemedText type="caption" themeColor="textSecondary">
+                {section.count} {section.count === 1 ? 'entry' : 'entries'}
+              </ThemedText>
+            </View>
             <View style={[styles.sectionRule, { backgroundColor: theme.border }]} />
-            <ThemedText type="small" themeColor="textSecondary">
-              {section.count} {section.count === 1 ? 'entry' : 'entries'} ·{' '}
+            <ThemedText type="figure" themeColor="textSecondary" style={styles.sectionTotal}>
               {formatMoney(section.dayTotal)}
             </ThemedText>
           </View>
         )}
         renderItem={({ item: row, index }) => (
-          <Animated.View
-            entering={FadeInDown.delay(Math.min(index, 6) * 40)
-              .springify()
-              .damping(16)}
-            style={styles.row}>
+          <Animated.View entering={rowIn(index)} style={styles.row}>
             {row.map((entry) => (
               <View key={entry.id} style={styles.cell}>
                 <JournalEntryCard
@@ -133,6 +141,7 @@ export default function JournalScreen() {
                   hideDate
                   style={styles.card}
                   onPress={() => router.push(`/entry/${entry.id}`)}
+                  onLongPress={() => router.push(`/entry/new?editId=${entry.id}`)}
                 />
               </View>
             ))}
@@ -156,8 +165,6 @@ export default function JournalScreen() {
           ) : null
         }
       />
-
-      <Fab label="New entry" onPress={() => router.push('/entry/new')} />
     </Screen>
   );
 }
@@ -174,7 +181,12 @@ function SummaryCell({ label, value, tone }: SummaryCellProps) {
       <ThemedText type="small" themeColor="textSecondary">
         {label}
       </ThemedText>
-      <ThemedText style={[styles.summaryValue, tone ? { color: tone } : null]} numberOfLines={1}>
+      <ThemedText
+        type="figure"
+        face="display"
+        style={[styles.summaryValue, tone ? { color: tone } : null]}
+        numberOfLines={1}
+        adjustsFontSizeToFit>
         {value}
       </ThemedText>
     </View>
@@ -184,20 +196,22 @@ function SummaryCell({ label, value, tone }: SummaryCellProps) {
 const styles = StyleSheet.create({
   header: {
     paddingTop: TopBarInset + Spacing.two,
-    paddingBottom: Spacing.three,
-    gap: Spacing.half,
+    paddingBottom: Spacing.four,
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: Spacing.three,
   },
-  title: {
-    fontSize: 30,
-    fontWeight: '700',
-    lineHeight: 36,
+  headerText: {
+    flex: 1,
+    minWidth: 0,
+    gap: Spacing.one,
   },
   summary: {
     flexDirection: 'row',
     alignItems: 'center',
-    borderRadius: Radius.large,
     paddingVertical: Spacing.three,
-    paddingHorizontal: Spacing.three,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderBottomWidth: StyleSheet.hairlineWidth,
   },
   summaryCell: {
     flex: 1,
@@ -209,18 +223,26 @@ const styles = StyleSheet.create({
     marginHorizontal: Spacing.three,
   },
   summaryValue: {
-    fontSize: 18,
-    fontWeight: '700',
+    fontSize: 22,
+    lineHeight: 28,
+    fontWeight: '600',
   },
   sectionHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: Spacing.two,
+    gap: Spacing.three,
     paddingTop: Spacing.four,
-    paddingBottom: Spacing.two,
+    paddingBottom: Spacing.three,
+  },
+  sectionTitleColumn: {
+    gap: 0,
   },
   sectionTitle: {
-    fontSize: 15,
+    fontSize: 17,
+    lineHeight: 22,
+  },
+  sectionTotal: {
+    fontSize: 14,
   },
   sectionRule: {
     flex: 1,
@@ -240,7 +262,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   listContent: {
-    paddingBottom: BottomTabInset + 96,
+    paddingBottom: BottomTabInset + Spacing.four,
     flexGrow: 1,
   },
 });

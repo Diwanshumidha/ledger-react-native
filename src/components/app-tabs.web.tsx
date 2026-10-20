@@ -4,7 +4,8 @@ import { Pressable, StyleSheet, View } from 'react-native';
 import { ThemedText } from './themed-text';
 import { ThemedView } from './themed-view';
 
-import { MaxContentWidth, Radius, Spacing } from '@/constants/theme';
+import { MaxContentWidth, Spacing } from '@/constants/theme';
+import { useTheme } from '@/hooks/use-theme';
 
 export default function AppTabs() {
   return (
@@ -25,10 +26,12 @@ export default function AppTabs() {
 }
 
 function TabBar(props: { children?: React.ReactNode }) {
+  const theme = useTheme();
+
   return (
     <View {...props} style={styles.barContainer}>
-      <ThemedView type="backgroundElement" style={styles.bar}>
-        <ThemedText type="smallBold" style={styles.brand}>
+      <ThemedView style={[styles.bar, { borderBottomColor: theme.border }]}>
+        <ThemedText type="heading" style={styles.brand}>
           Ledger
         </ThemedText>
         {props.children}
@@ -37,16 +40,21 @@ function TabBar(props: { children?: React.ReactNode }) {
   );
 }
 
+/** The current tab is underlined in ink, the way a heading is ruled off. */
 function TabButton({ children, isFocused, ...props }: TabTriggerSlotProps) {
+  const theme = useTheme();
+
   return (
     <Pressable {...props} style={({ pressed }) => (pressed ? styles.pressed : undefined)}>
-      <ThemedView
-        type={isFocused ? 'backgroundSelected' : 'backgroundElement'}
-        style={styles.tabButton}>
+      <View
+        style={[
+          styles.tabButton,
+          { borderBottomColor: isFocused ? theme.text : 'transparent' },
+        ]}>
         <ThemedText type="smallBold" themeColor={isFocused ? 'text' : 'textSecondary'}>
           {children}
         </ThemedText>
-      </ThemedView>
+      </View>
     </Pressable>
   );
 }
@@ -58,7 +66,7 @@ const styles = StyleSheet.create({
   barContainer: {
     position: 'absolute',
     width: '100%',
-    padding: Spacing.three,
+    paddingHorizontal: Spacing.three,
     alignItems: 'center',
     flexDirection: 'row',
     justifyContent: 'center',
@@ -66,23 +74,22 @@ const styles = StyleSheet.create({
   bar: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: Spacing.two,
+    gap: Spacing.four,
     flexGrow: 1,
     maxWidth: MaxContentWidth,
-    paddingVertical: Spacing.two,
-    paddingHorizontal: Spacing.four,
-    borderRadius: Radius.pill,
+    height: 60,
+    borderBottomWidth: StyleSheet.hairlineWidth,
   },
   brand: {
     marginRight: 'auto',
-    fontSize: 16,
+    fontSize: 19,
   },
   tabButton: {
-    paddingVertical: Spacing.one,
-    paddingHorizontal: Spacing.three,
-    borderRadius: Radius.medium,
+    height: 60,
+    justifyContent: 'center',
+    borderBottomWidth: 2,
   },
   pressed: {
-    opacity: 0.7,
+    opacity: 0.6,
   },
 });

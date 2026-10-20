@@ -1,9 +1,11 @@
 import { StyleSheet, View } from 'react-native';
-import Animated, { FadeIn } from 'react-native-reanimated';
+import Animated from 'react-native-reanimated';
 
 import { ThemedText } from '@/components/themed-text';
 import { AnimatedMoney } from '@/components/ui/animated-money';
-import { Radius, Spacing } from '@/constants/theme';
+import { DoubleRule } from '@/components/ui/double-rule';
+import { fadeIn } from '@/constants/motion';
+import { Spacing } from '@/constants/theme';
 import type { Money } from '@/domain/money';
 import { useTheme } from '@/hooks/use-theme';
 
@@ -14,51 +16,62 @@ export interface BalanceSummaryProps {
   payable: Money;
 }
 
+/** The two closing totals of the book, each ruled off underneath. */
 export function BalanceSummary({ receivable, payable }: BalanceSummaryProps) {
   const theme = useTheme();
 
   return (
-    <Animated.View
-      entering={FadeIn.duration(320)}
-      style={[styles.card, { backgroundColor: theme.backgroundElement }]}>
-      <View style={styles.half}>
-        <ThemedText type="small" themeColor="textSecondary">
-          You&apos;ll get
-        </ThemedText>
-        <AnimatedMoney value={receivable} style={[styles.amount, { color: theme.positive }]} />
-      </View>
-
+    <Animated.View entering={fadeIn(80)} style={styles.container}>
+      <Total label="You’ll get" value={receivable} color={theme.positive} />
       <View style={[styles.divider, { backgroundColor: theme.border }]} />
-
-      <View style={styles.half}>
-        <ThemedText type="small" themeColor="textSecondary">
-          You&apos;ll give
-        </ThemedText>
-        <AnimatedMoney value={payable} style={[styles.amount, { color: theme.negative }]} />
-      </View>
+      <Total label="You’ll give" value={payable} color={theme.negative} />
     </Animated.View>
   );
 }
 
+interface TotalProps {
+  label: string;
+  value: Money;
+  color: string;
+}
+
+function Total({ label, value, color }: TotalProps) {
+  return (
+    <View style={styles.total}>
+      <ThemedText type="small" themeColor="textSecondary">
+        {label}
+      </ThemedText>
+      <AnimatedMoney
+        value={value}
+        face="display"
+        numberOfLines={1}
+        adjustsFontSizeToFit
+        style={[styles.amount, { color }]}
+      />
+      <DoubleRule color={color} delay={360} />
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
-  card: {
+  container: {
     flexDirection: 'row',
-    alignItems: 'center',
-    borderRadius: Radius.large,
-    paddingVertical: Spacing.three,
-    paddingHorizontal: Spacing.three,
+    alignItems: 'stretch',
+    paddingTop: Spacing.two,
   },
-  half: {
+  total: {
     flex: 1,
+    minWidth: 0,
     gap: Spacing.one,
   },
   divider: {
     width: StyleSheet.hairlineWidth,
-    alignSelf: 'stretch',
-    marginHorizontal: Spacing.three,
+    marginHorizontal: Spacing.four,
   },
   amount: {
-    fontSize: 22,
+    fontSize: 32,
+    lineHeight: 38,
     fontWeight: '700',
+    letterSpacing: -0.8,
   },
 });

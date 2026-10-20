@@ -1,0 +1,284 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="robots" content="noindex" />
+    <title>Pay by UPI</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700&family=Public+Sans:wght@400;600&display=swap"
+      rel="stylesheet" />
+    <!--
+      The tappable half of a Ledger "ask to pay" message. Chat apps only link
+      https addresses, never upi://, so the message points here and this page
+      hands the payment to the phone's UPI app.
+
+      Everything shown comes from the query string, so it is validated and
+      written with textContent, never as HTML. The UPI link is rebuilt from the
+      validated parts rather than passed through. No scripts are loaded from
+      anywhere else.
+    -->
+    <style>
+      :root {
+        --paper: #eef2ea;
+        --card: #f6f8f2;
+        --ink: #17261e;
+        --ink-soft: #56675c;
+        --rule: #c9d6c3;
+        --green: #1d6a44;
+        --on-ink: #f3f6ef;
+      }
+      @media (prefers-color-scheme: dark) {
+        :root:not([data-theme='light']) {
+          --paper: #111914;
+          --card: #16201a;
+          --ink: #e3ebe2;
+          --ink-soft: #93a398;
+          --rule: #2a3930;
+          --green: #6fcb98;
+          --on-ink: #111914;
+        }
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        min-height: 100vh;
+        background: var(--paper);
+        color: var(--ink);
+        font-family: 'Public Sans', system-ui, sans-serif;
+        display: flex;
+        justify-content: center;
+        padding: 40px 16px;
+      }
+      main {
+        width: 100%;
+        max-width: 400px;
+      }
+      .card {
+        background: var(--card);
+        border-radius: 14px;
+        padding: 24px;
+      }
+      .masthead {
+        font-family: 'Bricolage Grotesque', system-ui, sans-serif;
+        font-weight: 700;
+        font-size: 18px;
+        padding-bottom: 8px;
+        border-bottom: 1px solid var(--ink);
+        margin: 0 0 20px;
+      }
+      .who {
+        color: var(--ink-soft);
+        margin: 0;
+        font-size: 15px;
+      }
+      .amount {
+        font-family: 'Bricolage Grotesque', system-ui, sans-serif;
+        font-weight: 700;
+        font-size: 48px;
+        line-height: 1.1;
+        letter-spacing: -1px;
+        color: var(--green);
+        margin: 4px 0 10px;
+        font-variant-numeric: tabular-nums;
+      }
+      /* The bookkeeper's double rule under a total, as in the app. */
+      .double-rule {
+        width: 70%;
+        height: 6px;
+        border-top: 1.5px solid var(--green);
+        border-bottom: 1.5px solid var(--green);
+        margin-bottom: 16px;
+      }
+      .note {
+        margin: 0 0 24px;
+        font-size: 15px;
+      }
+      .pay {
+        display: block;
+        text-align: center;
+        text-decoration: none;
+        background: var(--ink);
+        color: var(--on-ink);
+        font-weight: 600;
+        font-size: 17px;
+        padding: 15px 16px;
+        border-radius: 10px;
+      }
+      .pay:focus-visible,
+      .copy:focus-visible {
+        outline: 3px solid var(--green);
+        outline-offset: 2px;
+      }
+      .to {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        margin-top: 20px;
+        padding-top: 16px;
+        border-top: 1px solid var(--rule);
+        font-size: 14px;
+      }
+      .to-label {
+        color: var(--ink-soft);
+        margin: 0;
+      }
+      .to-id {
+        font-weight: 600;
+        margin: 2px 0 0;
+        word-break: break-all;
+      }
+      .copy {
+        flex: none;
+        font: inherit;
+        font-weight: 600;
+        color: var(--ink);
+        background: transparent;
+        border: 1px solid var(--rule);
+        border-radius: 6px;
+        padding: 6px 12px;
+        cursor: pointer;
+      }
+      .safety {
+        color: var(--ink-soft);
+        font-size: 13px;
+        line-height: 1.5;
+        margin: 16px 4px 0;
+      }
+      .desktop-only {
+        display: none;
+      }
+      .is-desktop .desktop-only {
+        display: block;
+      }
+      .is-desktop .phone-only {
+        display: none;
+      }
+      [hidden] {
+        display: none !important;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <section class="card" id="request" hidden>
+        <p class="masthead">Ledger</p>
+        <p class="who" id="who"></p>
+        <p class="amount" id="amount"></p>
+        <div class="double-rule" aria-hidden="true"></div>
+        <p class="note" id="note" hidden></p>
+
+        <a class="pay phone-only" id="pay">Pay with a UPI app</a>
+        <p class="note desktop-only">
+          Open this link on your phone to pay, or send the amount to the UPI ID below from any UPI
+          app.
+        </p>
+
+        <div class="to">
+          <div>
+            <p class="to-label">Paying to</p>
+            <p class="to-id" id="upi-id"></p>
+          </div>
+          <button class="copy" id="copy" type="button">Copy</button>
+        </div>
+      </section>
+
+      <section class="card" id="invalid" hidden>
+        <p class="masthead">Ledger</p>
+        <p class="note">
+          This payment link is incomplete. Ask the person who sent it to share it again.
+        </p>
+      </section>
+
+      <p class="safety" id="safety" hidden>
+        Your UPI app will show who you are paying. Check the name and UPI ID there before you enter
+        your PIN.
+      </p>
+    </main>
+
+    <script>
+      (function () {
+        var UPI_ID = /^[a-zA-Z0-9._-]{2,256}@[a-zA-Z][a-zA-Z0-9.-]{1,63}$/;
+        var params = new URLSearchParams(window.location.search);
+
+        var upiId = (params.get('pa') || '').trim();
+        var name = (params.get('pn') || '').trim().slice(0, 60);
+        var note = (params.get('tn') || '').trim().slice(0, 50);
+        var amount = Number(params.get('am'));
+
+        var valid =
+          UPI_ID.test(upiId) && isFinite(amount) && amount > 0 && amount <= 1000000;
+
+        if (!valid) {
+          document.getElementById('invalid').hidden = false;
+          return;
+        }
+
+        var rupees = new Intl.NumberFormat('en-IN', {
+          style: 'currency',
+          currency: 'INR',
+          minimumFractionDigits: amount % 1 === 0 ? 0 : 2,
+          maximumFractionDigits: 2,
+        }).format(amount);
+
+        // Rebuilt from the validated parts; "@" stays literal for UPI apps
+        // that do not decode %40.
+        var query = [
+          ['pa', upiId],
+          ['pn', name || upiId],
+          ['am', amount.toFixed(2)],
+          ['cu', 'INR'],
+        ];
+        if (note) query.push(['tn', note]);
+        var upiLink =
+          'upi://pay?' +
+          query
+            .map(function (pair) {
+              return pair[0] + '=' + encodeURIComponent(pair[1]).replace(/%40/g, '@');
+            })
+            .join('&');
+
+        document.title = 'Pay ' + rupees + (name ? ' to ' + name : '');
+        document.getElementById('who').textContent = name
+          ? name + ' asked you to pay'
+          : 'You were asked to pay';
+        document.getElementById('amount').textContent = rupees;
+        document.getElementById('upi-id').textContent = upiId;
+
+        if (note) {
+          var noteEl = document.getElementById('note');
+          noteEl.textContent = 'For: ' + note;
+          noteEl.hidden = false;
+        }
+
+        var pay = document.getElementById('pay');
+        pay.href = upiLink;
+        pay.textContent = 'Pay ' + rupees + ' with a UPI app';
+
+        // UPI apps live on phones; a desktop browser has nothing to open.
+        if (!/Android|iPhone|iPad|iPod/i.test(navigator.userAgent)) {
+          document.body.classList.add('is-desktop');
+        }
+
+        var copy = document.getElementById('copy');
+        copy.addEventListener('click', function () {
+          if (!navigator.clipboard) return;
+          navigator.clipboard.writeText(upiId).then(function () {
+            copy.textContent = 'Copied';
+            setTimeout(function () {
+              copy.textContent = 'Copy';
+            }, 2000);
+          });
+        });
+
+        document.getElementById('request').hidden = false;
+        document.getElementById('safety').hidden = false;
+      })();
+    </script>
+  </body>
+</html>

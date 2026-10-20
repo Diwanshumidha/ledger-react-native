@@ -1,7 +1,8 @@
+import { useState } from 'react';
 import { Platform, StyleSheet, TextInput, View, type KeyboardTypeOptions } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
-import { Radius, Spacing } from '@/constants/theme';
+import { FontFaces, Radius, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 
 export interface TextFieldProps {
@@ -10,6 +11,9 @@ export interface TextFieldProps {
   onChangeText: (next: string) => void;
   placeholder?: string;
   keyboardType?: KeyboardTypeOptions;
+  /** Off for identifiers like UPI IDs, which a phone would otherwise "fix". */
+  autoCapitalize?: 'none' | 'sentences' | 'words' | 'characters';
+  autoCorrect?: boolean;
   autoFocus?: boolean;
   multiline?: boolean;
   error?: string;
@@ -22,12 +26,15 @@ export function TextField({
   onChangeText,
   placeholder,
   keyboardType,
+  autoCapitalize,
+  autoCorrect,
   autoFocus = false,
   multiline = false,
   error,
   maxLength,
 }: TextFieldProps) {
   const theme = useTheme();
+  const [isFocused, setFocused] = useState(false);
 
   return (
     <View style={styles.container}>
@@ -40,10 +47,14 @@ export function TextField({
         placeholder={placeholder}
         placeholderTextColor={theme.textSecondary}
         keyboardType={keyboardType}
+        autoCapitalize={autoCapitalize}
+        autoCorrect={autoCorrect}
         autoFocus={autoFocus}
         multiline={multiline}
         maxLength={maxLength}
         accessibilityLabel={label}
+        onFocus={() => setFocused(true)}
+        onBlur={() => setFocused(false)}
         style={[
           styles.input,
           noFocusRing,
@@ -51,7 +62,7 @@ export function TextField({
           {
             color: theme.text,
             backgroundColor: theme.backgroundElement,
-            borderColor: error ? theme.negative : theme.border,
+            borderColor: error ? theme.negative : isFocused ? theme.text : theme.border,
           },
         ]}
       />
@@ -73,9 +84,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.three,
     paddingVertical: Spacing.two,
     borderRadius: Radius.medium,
-    borderWidth: StyleSheet.hairlineWidth,
+    borderWidth: 1,
     fontSize: 16,
-    fontWeight: '500',
+    fontFamily: FontFaces.body[500],
   },
   multiline: {
     minHeight: 88,

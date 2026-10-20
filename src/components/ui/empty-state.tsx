@@ -1,9 +1,10 @@
 import { StyleSheet, View } from 'react-native';
-import Animated, { FadeInDown } from 'react-native-reanimated';
+import Animated from 'react-native-reanimated';
 
 import { ThemedText } from '@/components/themed-text';
 import { Button } from '@/components/ui/button';
-import { Radius, Spacing } from '@/constants/theme';
+import { riseIn } from '@/constants/motion';
+import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 
 export interface EmptyStateProps {
@@ -18,11 +19,11 @@ export function EmptyState({ glyph, title, message, actionLabel, onAction }: Emp
   const theme = useTheme();
 
   return (
-    <Animated.View entering={FadeInDown.duration(420).springify()} style={styles.container}>
-      <View style={[styles.glyphCircle, { backgroundColor: theme.backgroundElement }]}>
+    <Animated.View entering={riseIn(120)} style={styles.container}>
+      <View style={[styles.glyphCircle, { borderColor: theme.border }]}>
         <ThemedText style={styles.glyph}>{glyph}</ThemedText>
       </View>
-      <ThemedText style={styles.title}>{title}</ThemedText>
+      <ThemedText type="heading">{title}</ThemedText>
       <ThemedText type="small" themeColor="textSecondary" style={styles.message}>
         {message}
       </ThemedText>
@@ -42,9 +43,10 @@ const styles = StyleSheet.create({
     gap: Spacing.two,
   },
   glyphCircle: {
-    width: 76,
-    height: 76,
-    borderRadius: Radius.pill,
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: Spacing.two,
@@ -53,17 +55,13 @@ const styles = StyleSheet.create({
     fontSize: 32,
     lineHeight: 40,
   },
-  title: {
-    fontSize: 20,
-    fontWeight: '700',
-  },
   message: {
     textAlign: 'center',
     maxWidth: 320,
   },
   action: {
     marginTop: Spacing.three,
-    alignSelf: 'stretch',
+    width: '100%',
     maxWidth: 280,
   },
 });

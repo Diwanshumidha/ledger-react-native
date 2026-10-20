@@ -1,8 +1,9 @@
 import { Modal, Pressable, StyleSheet, View } from 'react-native';
-import Animated, { FadeIn, FadeOut, ZoomIn, ZoomOut } from 'react-native-reanimated';
+import Animated from 'react-native-reanimated';
 
 import { ThemedText } from '@/components/themed-text';
 import { Button } from '@/components/ui/button';
+import { Duration, fadeIn, fadeOut, riseIn } from '@/constants/motion';
 import { Radius, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 
@@ -36,8 +37,8 @@ export function ConfirmDialog({
   return (
     <Modal visible={visible} transparent animationType="none" onRequestClose={onCancel}>
       <Animated.View
-        entering={FadeIn.duration(160)}
-        exiting={FadeOut.duration(120)}
+        entering={fadeIn(0, Duration.base)}
+        exiting={fadeOut}
         style={[styles.backdrop, { backgroundColor: theme.overlay }]}>
         <Pressable
           accessibilityLabel="Dismiss"
@@ -46,10 +47,10 @@ export function ConfirmDialog({
         />
 
         <Animated.View
-          entering={ZoomIn.springify().damping(18)}
-          exiting={ZoomOut.duration(140)}
+          entering={riseIn(60, 12)}
+          exiting={fadeOut}
           style={[styles.card, { backgroundColor: theme.card, borderColor: theme.border }]}>
-          <ThemedText style={styles.title}>{title}</ThemedText>
+          <ThemedText type="heading">{title}</ThemedText>
           <ThemedText type="small" themeColor="textSecondary">
             {message}
           </ThemedText>
@@ -88,10 +89,6 @@ const styles = StyleSheet.create({
     padding: Spacing.four,
     borderRadius: Radius.large,
     borderWidth: StyleSheet.hairlineWidth,
-  },
-  title: {
-    fontSize: 19,
-    fontWeight: '700',
   },
   actions: {
     flexDirection: 'row',

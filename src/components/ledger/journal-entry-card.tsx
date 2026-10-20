@@ -18,6 +18,8 @@ export interface JournalEntryCardProps {
   /** Lets a grid cell stretch the card to the row height. */
   style?: StyleProp<ViewStyle>;
   onPress: () => void;
+  /** Long press goes straight to editing the entry. */
+  onLongPress?: () => void;
 }
 
 /** A voucher: headline amount, then the postings indented like a journal. */
@@ -27,6 +29,7 @@ export function JournalEntryCard({
   hideDate = false,
   style,
   onPress,
+  onLongPress,
 }: JournalEntryCardProps) {
   const theme = useTheme();
   const debits = entry.postings.filter((posting) => posting.side === 'dr');
@@ -36,16 +39,18 @@ export function JournalEntryCard({
   // More than one debit means the cost was shared out across people.
   const splitWays = debits.length > 1 ? debits.length : 0;
 
-  const meta = [`#${entry.voucherNo}`, hideDate ? null : formatDateShort(entry.date)]
-    .filter(Boolean)
-    .join(' · ');
+  const meta = hideDate
+    ? `Voucher ${entry.voucherNo}`
+    : `Voucher ${entry.voucherNo}, ${formatDateShort(entry.date)}`;
 
   return (
     <PressableScale
       accessibilityRole="button"
       accessibilityLabel={`Voucher ${entry.voucherNo}, ${entry.narration || 'journal entry'}, ${formatMoney(total)}`}
       onPress={onPress}
-      scaleTo={0.985}
+      onLongPress={onLongPress}
+      accessibilityHint={onLongPress ? 'Long press to edit' : undefined}
+      scaleTo={0.995}
       // The "split N ways" badge carries that meaning; tinting the whole
       // border as well made every card read as selected.
       style={[styles.card, { backgroundColor: theme.card, borderColor: theme.border }, style]}>
@@ -55,12 +60,12 @@ export function JournalEntryCard({
             {entry.narration || 'Journal entry'}
           </ThemedText>
           <View style={styles.metaRow}>
-            <ThemedText type="small" themeColor="textSecondary">
+            <ThemedText type="caption" themeColor="textSecondary">
               {meta}
             </ThemedText>
             {splitWays > 0 ? (
-              <View style={[styles.badge, { backgroundColor: theme.accentSoft }]}>
-                <ThemedText type="small" style={[styles.badgeText, { color: theme.accent }]}>
+              <View style={[styles.badge, { borderColor: theme.border }]}>
+                <ThemedText type="caption" themeColor="textSecondary" style={styles.badgeText}>
                   split {splitWays} ways
                 </ThemedText>
               </View>
@@ -68,7 +73,9 @@ export function JournalEntryCard({
           </View>
         </View>
 
-        <ThemedText style={styles.amount}>{formatMoney(total)}</ThemedText>
+        <ThemedText type="figure" face="display" style={styles.amount}>
+          {formatMoney(total)}
+        </ThemedText>
       </View>
 
       <View style={[styles.postings, { borderTopColor: theme.border }]}>
@@ -113,7 +120,7 @@ function PostingLine({ name, amount, side }: PostingLineProps) {
       <ThemedText type="small" numberOfLines={1} style={styles.postingName}>
         {name}
       </ThemedText>
-      <ThemedText type="small" themeColor="textSecondary" style={styles.postingAmount}>
+      <ThemedText type="figure" themeColor="textSecondary" style={styles.postingAmount}>
         {amount}
       </ThemedText>
     </View>
@@ -122,7 +129,7 @@ function PostingLine({ name, amount, side }: PostingLineProps) {
 
 const styles = StyleSheet.create({
   card: {
-    gap: Spacing.two,
+    gap: Spacing.three,
     padding: Spacing.three,
     borderRadius: Radius.medium,
     borderWidth: StyleSheet.hairlineWidth,
@@ -139,7 +146,7 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: 16,
-    fontWeight: '700',
+    fontWeight: '600',
   },
   metaRow: {
     flexDirection: 'row',
@@ -149,16 +156,16 @@ const styles = StyleSheet.create({
   },
   badge: {
     paddingHorizontal: Spacing.two,
-    paddingVertical: 1,
     borderRadius: Radius.pill,
+    borderWidth: 1,
   },
   badgeText: {
-    fontSize: 12,
-    fontWeight: '700',
+    fontWeight: '600',
   },
   amount: {
-    fontSize: 18,
-    fontWeight: '700',
+    fontSize: 20,
+    lineHeight: 26,
+    fontWeight: '600',
   },
   postings: {
     gap: Spacing.one,
@@ -174,7 +181,7 @@ const styles = StyleSheet.create({
     paddingLeft: Spacing.four,
   },
   sideTag: {
-    fontWeight: '700',
+    fontWeight: '600',
     width: 20,
   },
   postingName: {
@@ -182,6 +189,7 @@ const styles = StyleSheet.create({
     minWidth: 0,
   },
   postingAmount: {
-    fontVariant: ['tabular-nums'],
+    fontSize: 14,
+    fontWeight: '400',
   },
 });

@@ -1,7 +1,7 @@
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { useMemo, useState } from 'react';
 import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, View } from 'react-native';
-import Animated, { FadeIn, FadeInDown, LinearTransition } from 'react-native-reanimated';
+import Animated from 'react-native-reanimated';
 
 import { AccountPickerSheet } from '@/components/ledger/account-picker-sheet';
 import { AmountField } from '@/components/ledger/amount-field';
@@ -15,6 +15,7 @@ import { HydrationGate } from '@/components/ui/hydration-gate';
 import { PressableScale } from '@/components/ui/pressable-scale';
 import { Screen } from '@/components/ui/screen';
 import { TextField } from '@/components/ui/text-field';
+import { Duration, fadeIn, riseIn, settle } from '@/constants/motion';
 import { Radius, Spacing } from '@/constants/theme';
 import {
   balanceOf,
@@ -22,10 +23,10 @@ import {
   describePartyBalance,
   validatePostings,
 } from '@/domain/accounting';
-import { formatDateLong, shiftCalendarDate, today } from '@/domain/date';
+import { formatDateLong, formatDateShort, shiftCalendarDate, today } from '@/domain/date';
 import { formatAmount, formatMoney, parseMoney } from '@/domain/money';
 import { CASH_ACCOUNT_ID } from '@/domain/seed';
-import type { Account, Posting, SimpleDirection } from '@/domain/types';
+import type { Account, JournalEntry, Posting, SimpleDirection } from '@/domain/types';
 import { useTheme } from '@/hooks/use-theme';
 import { useLedger, useLedgerActions } from '@/state/ledger-store';
 
@@ -52,36 +53,74 @@ export default function NewEntryScreen() {
   );
 }
 
+/**
+ * How an existing entry opens for editing. A two-line entry against a person
+ * reopens as the quick entry it was made with; anything else as journal lines.
+ */
+function draftFromEntry(entry: JournalEntry, accounts: Account[]) {
+  const roleOf = new Map(accounts.map((account) => [account.id, account.role]));
+  const partyPosting = entry.postings.find((posting) => roleOf.get(posting.accountId) === 'party');
+  const counterPosting = entry.postings.find((posting) => posting !== partyPosting);
+
+  if (entry.postings.length === 2 && partyPosting && counterPosting) {
+    return {
+      mode: 'simple' as const,
+      partyId: partyPosting.accountId,
+      counterId: counterPosting.accountId,
+      // A debit to the person is money that went to them.
+      direction: (partyPosting.side === 'dr' ? 'gave' : 'got') as SimpleDirection,
+      amountText: toInputText(partyPosting.amount),
+    };
+  }
+  return { mode: 'advanced' as const };
+}
+
+/** Minor units as an editable figure: "8400", or "8400.50" with paise. */
+function toInputText(minor: number): string {
+  return minor % 100 === 0 ? String(minor / 100) : (minor / 100).toFixed(2);
+}
+
 function NewEntryComposer() {
   const params = useLocalSearchParams<{
     ledgerId?: string;
     direction?: string;
     mode?: string;
+    editId?: string;
   }>();
   const router = useRouter();
   const theme = useTheme();
-  const { accounts, entries } = useLedger();
-  const { addEntry } = useLedgerActions();
+  const { accounts, entries: allEntries } = useLedger();
+  const { addEntry, updateEntry } = useLedgerActions();
 
-  const parties = useMemo(
-    () => accounts.filter((account) => account.role === 'party'),
-    [accounts],
+  // Read once: the form is seeded from the entry as it was when opened.
+  const [editing] = useState(() => allEntries.find((entry) => entry.id === params.editId));
+  const [initialDraft] = useState(() => (editing ? draftFromEntry(editing, accounts) : null));
+  const isEditing = editing !== undefined;
+
+  // Balances shown while editing must leave out the entry's old version.
+  const entries = useMemo(
+    () => (editing ? allEntries.filter((entry) => entry.id !== editing.id) : allEntries),
+    [allEntries, editing],
   );
+
+  const parties = useMemo(() => accounts.filter((account) => account.role === 'party'), [accounts]);
   const counterAccounts = useMemo(
     () => accounts.filter((account) => account.role !== 'party'),
     [accounts],
   );
 
   const [mode, setMode] = useState<ComposerMode>(
-    params.mode === 'split' ? 'split' : 'simple',
+    initialDraft?.mode ?? (params.mode === 'split' ? 'split' : 'simple'),
   );
-  const [date, setDate] = useState(today());
-  const [narration, setNarration] = useState('');
+  const [date, setDate] = useState(editing?.date ?? today());
+  const [narration, setNarration] = useState(editing?.narration ?? '');
   const [error, setError] = useState<string | undefined>();
   const [shakeKey, setShakeKey] = useState(0);
 
   // Quick-entry state
-  const [chosenPartyId, setPartyId] = useState<string | null>(params.ledgerId ?? null);
+  const [chosenPartyId, setPartyId] = useState<string | null>(
+    initialDraft?.mode === 'simple' ? initialDraft.partyId : (params.ledgerId ?? null),
+  );
 
   /**
    * Falls back to the first ledger at render time rather than in `useState`:
@@ -90,20 +129,36 @@ function NewEntryComposer() {
    */
   const partyId = chosenPartyId ?? parties[0]?.id ?? null;
   const [counterId, setCounterId] = useState<string>(
-    counterAccounts.find((account) => account.id === CASH_ACCOUNT_ID)?.id ??
+    (initialDraft?.mode === 'simple' ? initialDraft.counterId : undefined) ??
+      counterAccounts.find((account) => account.id === CASH_ACCOUNT_ID)?.id ??
       counterAccounts[0]?.id ??
       CASH_ACCOUNT_ID,
   );
   const [direction, setDirection] = useState<SimpleDirection>(
-    params.direction === 'got' ? 'got' : 'gave',
+    initialDraft?.mode === 'simple'
+      ? initialDraft.direction
+      : params.direction === 'got'
+        ? 'got'
+        : 'gave',
   );
-  const [amountText, setAmountText] = useState('');
+  const [amountText, setAmountText] = useState(
+    initialDraft?.mode === 'simple' ? initialDraft.amountText : '',
+  );
 
   // Journal-entry state
-  const [lines, setLines] = useState<DraftPosting[]>(() => [
-    { key: nextDraftKey(), accountId: null, side: 'dr', amountText: '' },
-    { key: nextDraftKey(), accountId: null, side: 'cr', amountText: '' },
-  ]);
+  const [lines, setLines] = useState<DraftPosting[]>(() =>
+    editing && initialDraft?.mode === 'advanced'
+      ? editing.postings.map((posting) => ({
+          key: nextDraftKey(),
+          accountId: posting.accountId,
+          side: posting.side,
+          amountText: toInputText(posting.amount),
+        }))
+      : [
+          { key: nextDraftKey(), accountId: null, side: 'dr', amountText: '' },
+          { key: nextDraftKey(), accountId: null, side: 'cr', amountText: '' },
+        ],
+  );
 
   const [picker, setPicker] = useState<
     { kind: 'party' } | { kind: 'counter' } | { kind: 'line'; key: string } | null
@@ -180,7 +235,12 @@ function NewEntryComposer() {
       // An untitled quick entry reads better in the day book as "You gave"
       // than as the generic "Journal entry" fallback.
       const fallback = mode === 'simple' ? (direction === 'gave' ? 'You gave' : 'You got') : '';
-      addEntry({ date, narration: narration.trim() || fallback, postings: draftPostings });
+      const input = { date, narration: narration.trim() || fallback, postings: draftPostings };
+      if (editing) {
+        updateEntry(editing.id, input);
+      } else {
+        addEntry(input);
+      }
       close();
     } catch (cause) {
       reject(cause instanceof Error ? cause.message : 'Could not save this entry.');
@@ -196,9 +256,21 @@ function NewEntryComposer() {
 
   const directionTint = direction === 'gave' ? theme.negative : theme.positive;
 
-  const modeSwitcher = (
+  // An edit keeps the entry's shape, so there is no switching between kinds.
+  const modeSwitcher = isEditing ? (
+    <Stack.Screen options={{ title: `Edit voucher #${editing.voucherNo}` }} />
+  ) : (
     <ChoiceChips choices={MODE_CHOICES} value={mode} onChange={setMode} />
   );
+
+  // The quick dates, plus the entry's own date when it is older than those.
+  const dateChoices = [
+    { value: today(), label: 'Today' },
+    { value: shiftCalendarDate(today(), -1), label: 'Yesterday' },
+  ];
+  if (editing && !dateChoices.some((choice) => choice.value === editing.date)) {
+    dateChoices.push({ value: editing.date, label: formatDateShort(editing.date) });
+  }
 
   if (mode === 'split') {
     return (
@@ -246,8 +318,8 @@ function NewEntryComposer() {
 
           {mode === 'simple' ? (
             <Animated.View
-              entering={FadeIn.duration(220)}
-              layout={LinearTransition}
+              entering={fadeIn(0, Duration.base)}
+              layout={settle}
               style={styles.section}>
               <SelectRow
                 label="Ledger"
@@ -298,8 +370,8 @@ function NewEntryComposer() {
             </Animated.View>
           ) : (
             <Animated.View
-              entering={FadeIn.duration(220)}
-              layout={LinearTransition}
+              entering={fadeIn(0, Duration.base)}
+              layout={settle}
               style={styles.section}>
               <ThemedText type="small" themeColor="textSecondary">
                 Add lines until debits equal credits.
@@ -309,9 +381,7 @@ function NewEntryComposer() {
                 <PostingLineEditor
                   key={line.key}
                   line={line}
-                  accountName={
-                    line.accountId ? accountById.get(line.accountId)?.name : undefined
-                  }
+                  accountName={line.accountId ? accountById.get(line.accountId)?.name : undefined}
                   canRemove={lines.length > 2}
                   onPickAccount={() => setPicker({ kind: 'line', key: line.key })}
                   onChange={(changes) => updateLine(line.key, changes)}
@@ -341,15 +411,7 @@ function NewEntryComposer() {
           )}
 
           <View style={styles.section}>
-            <ChoiceChips
-              label="Date"
-              choices={[
-                { value: today(), label: 'Today' },
-                { value: shiftCalendarDate(today(), -1), label: 'Yesterday' },
-              ]}
-              value={date}
-              onChange={setDate}
-            />
+            <ChoiceChips label="Date" choices={dateChoices} value={date} onChange={setDate} />
             <ThemedText type="small" themeColor="textSecondary">
               {formatDateLong(date)}
             </ThemedText>
@@ -364,7 +426,7 @@ function NewEntryComposer() {
           </View>
 
           {error ? (
-            <Animated.View entering={FadeInDown.duration(200)}>
+            <Animated.View entering={riseIn(0, 6, Duration.base)}>
               <ThemedText type="small" style={{ color: theme.negative }}>
                 {error}
               </ThemedText>
@@ -373,7 +435,7 @@ function NewEntryComposer() {
         </ScrollView>
 
         <View style={styles.footer}>
-          <Button label="Save entry" onPress={submit} />
+          <Button label={isEditing ? 'Save changes' : 'Save entry'} onPress={submit} />
         </View>
       </KeyboardAvoidingView>
 
@@ -465,19 +527,13 @@ interface EntryPreviewProps {
 }
 
 /** Shows the balanced entry that the quick-entry taps will actually store. */
-function EntryPreview({
-  debitName,
-  creditName,
-  amount,
-  outcome,
-  outcomeColor,
-}: EntryPreviewProps) {
+function EntryPreview({ debitName, creditName, amount, outcome, outcomeColor }: EntryPreviewProps) {
   const theme = useTheme();
 
   return (
     <Animated.View
-      entering={FadeInDown.duration(240)}
-      layout={LinearTransition}
+      entering={riseIn(0, 6, Duration.base)}
+      layout={settle}
       style={[styles.preview, { backgroundColor: theme.backgroundElement }]}>
       <ThemedText type="small" themeColor="textSecondary">
         Will be recorded as
@@ -527,7 +583,7 @@ function BalanceIndicator({ debit, credit, shakeKey }: BalanceIndicatorProps) {
   return (
     <Animated.View
       key={shakeKey}
-      entering={FadeIn.duration(180)}
+      entering={fadeIn(0, Duration.base)}
       style={[
         styles.balanceBar,
         {

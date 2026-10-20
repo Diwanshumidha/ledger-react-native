@@ -3,15 +3,15 @@ import { Pressable, StyleSheet, View } from 'react-native';
 import Animated, {
   useAnimatedStyle,
   useDerivedValue,
-  withSpring,
+  withTiming,
 } from 'react-native-reanimated';
 
 import { ThemedText } from '@/components/themed-text';
+import { TimingBase } from '@/constants/motion';
 import { Radius, Spacing } from '@/constants/theme';
 import type { SimpleDirection } from '@/domain/types';
 import { useTheme } from '@/hooks/use-theme';
 
-const INDICATOR_SPRING = { damping: 20, stiffness: 220, mass: 0.7 };
 const TRACK_PADDING = 4;
 
 export interface DirectionToggleProps {
@@ -31,7 +31,7 @@ export function DirectionToggle({ value, onChange }: DirectionToggleProps) {
   const targetIndex = value === 'gave' ? 0 : 1;
 
   const offset = useDerivedValue(() =>
-    withSpring(targetIndex * segmentWidth, INDICATOR_SPRING),
+    withTiming(targetIndex * segmentWidth, TimingBase),
   );
 
   const indicatorStyle = useAnimatedStyle(() => ({
@@ -116,6 +116,6 @@ const styles = StyleSheet.create({
   },
   segmentLabel: {
     fontSize: 15,
-    fontWeight: '700',
+    fontWeight: '600',
   },
 });

@@ -1,14 +1,9 @@
 import { Pressable, type PressableProps, type StyleProp, type ViewStyle } from 'react-native';
-import Animated, {
-  useAnimatedStyle,
-  useSharedValue,
-  withSpring,
-  withTiming,
-} from 'react-native-reanimated';
+import Animated, { useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
+
+import { Duration, Ease } from '@/constants/motion';
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
-
-const PRESS_SPRING = { damping: 18, stiffness: 320, mass: 0.6 };
 
 export interface PressableScaleProps extends Omit<PressableProps, 'style'> {
   style?: StyleProp<ViewStyle>;
@@ -18,13 +13,13 @@ export interface PressableScaleProps extends Omit<PressableProps, 'style'> {
 }
 
 /**
- * A press target that springs inward on touch. Used for every tappable card so
- * the whole app shares one tactile language.
+ * A press target that eases down slightly on touch and back on release. Used
+ * for every tappable surface so the whole app shares one quiet press response.
  */
 export function PressableScale({
   style,
-  scaleTo = 0.97,
-  dimTo = 0.92,
+  scaleTo = 0.985,
+  dimTo = 0.78,
   children,
   ...rest
 }: PressableScaleProps) {
@@ -39,11 +34,11 @@ export function PressableScale({
     <AnimatedPressable
       {...rest}
       onPressIn={(event) => {
-        progress.value = withTiming(1, { duration: 90 });
+        progress.value = withTiming(1, { duration: 120, easing: Ease });
         rest.onPressIn?.(event);
       }}
       onPressOut={(event) => {
-        progress.value = withSpring(0, PRESS_SPRING);
+        progress.value = withTiming(0, { duration: Duration.base, easing: Ease });
         rest.onPressOut?.(event);
       }}
       style={[style, animatedStyle]}>

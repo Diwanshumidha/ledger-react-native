@@ -22,6 +22,8 @@ export interface Account {
   role: AccountRole;
   /** Optional contact number for party ledgers. */
   phone?: string;
+  /** Their UPI ID (e.g. `name@okaxis`), so you can pay them from the app. */
+  upiId?: string;
   note?: string;
   /** System ledgers (Cash, Bank) are seeded and cannot be deleted. */
   isSystem: boolean;
@@ -72,11 +74,20 @@ export interface JournalEntry {
 /** Direction of a simple Khatabook-style entry, from the user's point of view. */
 export type SimpleDirection = 'gave' | 'got';
 
+/** About the person keeping the book — used when asking others to pay. */
+export interface Profile {
+  /** Shown as the payee name in UPI apps. */
+  name?: string;
+  upiId?: string;
+}
+
 export interface LedgerSnapshot {
   version: number;
   accounts: Account[];
   entries: JournalEntry[];
   nextVoucherNo: number;
+  /** Optional so books saved before it existed still load. */
+  profile?: Profile;
 }
 
 /** A posting resolved against its entry, for rendering a ledger statement. */

@@ -277,3 +277,58 @@ export function describeAccountBalance(account: Account, balance: Money): PartyB
     tone: balance === 0 ? 'neutral' : isNormal ? 'positive' : 'negative',
   };
 }
+
+export interface Settlement {
+  /** Which way the money moves, from your side. */
+  direction: SimpleDirection;
+  postings: Posting[];
+}
+
+/**
+ * The entry that pays off (all or part of) a party's balance through cash or
+ * bank. If they owe you, they pay you — "got"; if you owe them, you pay —
+ * "gave". Returns null when there is nothing to settle or the amount would
+ * overshoot the balance.
+ */
+export function buildSettlement(
+  partyAccountId: string,
+  counterAccountId: string,
+  balance: Money,
+  amount: Money,
+): Settlement | null {
+  const outstanding = Math.abs(balance);
+  if (balance === 0 || !isPositiveAmount(amount) || amount > outstanding) {
+    return null;
+  }
+  const direction: SimpleDirection = balance > 0 ? 'got' : 'gave';
+  return {
+    direction,
+    postings: buildSimplePostings(partyAccountId, counterAccountId, direction, amount),
+  };
+}
+
+export interface StatementPeriods {
+  /** Lines since the balance last stood at zero, newest first. */
+  open: StatementLine[];
+  /** Everything up to and including the line that brought it to zero. */
+  settled: StatementLine[];
+  /** Date the balance last reached zero. */
+  settledOn?: string;
+}
+
+/**
+ * Splits a newest-first statement at the most recent point the running
+ * balance reached zero. What came before is closed business — useful as
+ * history, but noise next to what is still open.
+ */
+export function splitAtLastSettlement(statement: StatementLine[]): StatementPeriods {
+  const index = statement.findIndex((line) => line.runningBalance === 0);
+  if (index === -1) {
+    return { open: statement, settled: [] };
+  }
+  return {
+    open: statement.slice(0, index),
+    settled: statement.slice(index),
+    settledOn: statement[index].entry.date,
+  };
+}

@@ -26,8 +26,9 @@ export function Avatar({ name, hue, size = 44 }: AvatarProps) {
   const scheme = useColorScheme();
   const isDark = scheme === 'dark';
 
-  const backgroundColor = isDark ? `hsl(${hue} 45% 22%)` : `hsl(${hue} 78% 93%)`;
-  const color = isDark ? `hsl(${hue} 75% 72%)` : `hsl(${hue} 55% 32%)`;
+  // Muted so a page of avatars reads like coloured index tabs, not confetti.
+  const backgroundColor = isDark ? `hsl(${hue} 22% 20%)` : `hsl(${hue} 32% 86%)`;
+  const color = isDark ? `hsl(${hue} 40% 74%)` : `hsl(${hue} 38% 28%)`;
 
   return (
     <View
@@ -35,7 +36,9 @@ export function Avatar({ name, hue, size = 44 }: AvatarProps) {
         styles.container,
         { width: size, height: size, borderRadius: Radius.pill, backgroundColor },
       ]}>
-      <ThemedText style={[styles.label, { color, fontSize: size * 0.36 }]}>
+      <ThemedText
+        type="heading"
+        style={[styles.label, { color, fontSize: size * 0.38, lineHeight: size * 0.5 }]}>
         {initialsOf(name)}
       </ThemedText>
     </View>
@@ -48,6 +51,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   label: {
-    fontWeight: '700',
+    fontWeight: '600',
+    letterSpacing: 0,
   },
 });

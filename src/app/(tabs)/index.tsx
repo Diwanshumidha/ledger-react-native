@@ -1,21 +1,25 @@
 import { useRouter } from 'expo-router';
-import { useMemo, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 import { SectionList, StyleSheet, View } from 'react-native';
-import Animated, { FadeInDown, LinearTransition } from 'react-native-reanimated';
+import Animated from 'react-native-reanimated';
 
 import { BalanceSummary } from '@/components/ledger/balance-summary';
-import { LedgerRow } from '@/components/ledger/ledger-row';
+
+import {
+  SwipeableLedgerRow,
+  type SwipeAction,
+  type SwipeRowHandle,
+} from '@/components/ledger/swipeable-ledger-row';
 import { ThemedText } from '@/components/themed-text';
 import { EmptyState } from '@/components/ui/empty-state';
-import { Fab } from '@/components/ui/fab';
+import { IconButton } from '@/components/ui/icon-button';
 import { Screen } from '@/components/ui/screen';
 import { TextField } from '@/components/ui/text-field';
+import { riseIn, rowIn, settle } from '@/constants/motion';
 import { BottomTabInset, Spacing, TopBarInset } from '@/constants/theme';
 import { balancesByAccount, sortChronologically } from '@/domain/accounting';
 import type { Account } from '@/domain/types';
 import { useLedger } from '@/state/ledger-store';
-
-const STAGGER_MS = 45;
 
 interface LedgerSection {
   title: string;
@@ -40,10 +44,7 @@ export default function LedgersScreen() {
     return dates;
   }, [entries]);
 
-  const parties = useMemo(
-    () => accounts.filter((account) => account.role === 'party'),
-    [accounts],
-  );
+  const parties = useMemo(() => accounts.filter((account) => account.role === 'party'), [accounts]);
 
   const totals = useMemo(() => {
     let receivable = 0;
@@ -102,16 +103,59 @@ export default function LedgersScreen() {
   const hasAnyLedger = accounts.some((account) => !account.isSystem);
   const openLedger = (account: Account) => router.push(`/ledger/${account.id}`);
 
+  // Only one row stays swiped open; opening another closes the last.
+  const openRow = useRef<SwipeRowHandle | null>(null);
+  const handleRowOpen = useCallback((row: SwipeRowHandle) => {
+    if (openRow.current && openRow.current !== row) {
+      openRow.current.close();
+    }
+    openRow.current = row;
+  }, []);
+
+  /** The same shortcuts the ledger's own page offers at the bottom. */
+  const swipeActionsFor = (account: Account): SwipeAction[] => {
+    if (account.role === 'category' && account.type === 'expense') {
+      return [
+        {
+          label: 'Add expense',
+          tone: 'ink',
+          onPress: () => router.push(`/entry/split?ledgerId=${account.id}`),
+        },
+      ];
+    }
+    const record = (direction: 'gave' | 'got') =>
+      router.push(`/entry/new?ledgerId=${account.id}&direction=${direction}`);
+    return [
+      { label: 'You gave', tone: 'negative', onPress: () => record('gave') },
+      { label: 'You got', tone: 'positive', onPress: () => record('got') },
+    ];
+  };
+
   return (
     <Screen>
-      <View style={styles.header}>
-        <ThemedText style={styles.title}>Ledgers</ThemedText>
-        <ThemedText type="small" themeColor="textSecondary">
-          {parties.length === 0
-            ? 'Track what you gave and what you got'
-            : `${parties.length} ${parties.length === 1 ? 'party' : 'parties'}`}
-        </ThemedText>
-      </View>
+      <Animated.View entering={riseIn(0, 6)} style={styles.header}>
+        <View style={styles.headerText}>
+          <ThemedText type="title">Ledgers</ThemedText>
+          <ThemedText type="small" themeColor="textSecondary">
+            {parties.length === 0
+              ? 'Track what you gave and what you got'
+              : 'Swipe a row left to record an entry'}
+          </ThemedText>
+        </View>
+        <View style={styles.headerActions}>
+          <IconButton
+            glyph="₹"
+            variant="quiet"
+            accessibilityLabel="Payment details"
+            onPress={() => router.push('/settings')}
+          />
+          <IconButton
+            glyph="+"
+            accessibilityLabel="Add ledger"
+            onPress={() => router.push('/ledger/new')}
+          />
+        </View>
+      </Animated.View>
 
       {parties.length > 0 ? (
         <>
@@ -138,43 +182,35 @@ export default function LedgersScreen() {
           onAction={() => router.push('/ledger/new')}
         />
       ) : (
-      <SectionList
-        sections={sections}
-        keyExtractor={(account) => account.id}
-        contentContainerStyle={styles.listContent}
-        keyboardShouldPersistTaps="handled"
-        showsVerticalScrollIndicator={false}
-        stickySectionHeadersEnabled={false}
-        renderSectionHeader={({ section }) => (
-          <ThemedText type="smallBold" themeColor="textSecondary" style={styles.sectionHeader}>
-            {section.title}
-          </ThemedText>
-        )}
-        renderItem={({ item, index }) => (
-          <Animated.View
-            entering={FadeInDown.delay(Math.min(index, 8) * STAGGER_MS)
-              .springify()
-              .damping(16)}
-            layout={LinearTransition.springify().damping(18)}
-            style={styles.rowWrapper}>
-            <LedgerRow
-              account={item}
-              balance={balances.get(item.id) ?? 0}
-              lastActivityDate={lastActivity.get(item.id)}
-              onPress={() => openLedger(item)}
-            />
-          </Animated.View>
-        )}
-        ListEmptyComponent={
-          <EmptyState
-            glyph="🔍"
-            title="No matches"
-            message="Try a different name or number."
-          />
-        }
-      />
+        <SectionList
+          sections={sections}
+          keyExtractor={(account) => account.id}
+          contentContainerStyle={styles.listContent}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+          stickySectionHeadersEnabled={false}
+          renderSectionHeader={({ section }) => (
+            <ThemedText type="heading" style={styles.sectionHeader}>
+              {section.title}
+            </ThemedText>
+          )}
+          renderItem={({ item, index }) => (
+            <Animated.View entering={rowIn(index)} layout={settle}>
+              <SwipeableLedgerRow
+                account={item}
+                balance={balances.get(item.id) ?? 0}
+                lastActivityDate={lastActivity.get(item.id)}
+                onPress={() => openLedger(item)}
+                actions={swipeActionsFor(item)}
+                onOpen={handleRowOpen}
+              />
+            </Animated.View>
+          )}
+          ListEmptyComponent={
+            <EmptyState glyph="🔍" title="No matches" message="Try a different name or number." />
+          }
+        />
       )}
-      <Fab label="Add ledger" onPress={() => router.push('/ledger/new')} />
     </Screen>
   );
 }
@@ -182,26 +218,30 @@ export default function LedgersScreen() {
 const styles = StyleSheet.create({
   header: {
     paddingTop: TopBarInset + Spacing.two,
-    paddingBottom: Spacing.three,
-    gap: Spacing.half,
+    paddingBottom: Spacing.four,
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: Spacing.three,
   },
-  title: {
-    fontSize: 30,
-    fontWeight: '700',
-    lineHeight: 36,
+  headerActions: {
+    flexDirection: 'row',
+    gap: Spacing.two,
+  },
+  headerText: {
+    flex: 1,
+    minWidth: 0,
+    gap: Spacing.one,
   },
   search: {
-    paddingTop: Spacing.three,
+    paddingTop: Spacing.four,
   },
   sectionHeader: {
-    paddingTop: Spacing.three,
-    paddingBottom: Spacing.two,
-  },
-  rowWrapper: {
-    paddingBottom: Spacing.two,
+    fontSize: 17,
+    paddingTop: Spacing.four,
+    paddingBottom: Spacing.one,
   },
   listContent: {
-    paddingBottom: BottomTabInset + 96,
+    paddingBottom: BottomTabInset + Spacing.four,
     flexGrow: 1,
   },
 });

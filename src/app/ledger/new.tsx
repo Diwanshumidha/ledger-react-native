@@ -1,22 +1,24 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useState } from 'react';
 import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, View } from 'react-native';
-import Animated, { FadeInDown } from 'react-native-reanimated';
+import Animated from 'react-native-reanimated';
 
 import { ThemedText } from '@/components/themed-text';
 import { Button } from '@/components/ui/button';
 import { ChoiceChips } from '@/components/ui/choice-chips';
 import { Screen } from '@/components/ui/screen';
 import { TextField } from '@/components/ui/text-field';
+import { Duration, riseIn } from '@/constants/motion';
 import { Spacing } from '@/constants/theme';
 import type { AccountType } from '@/domain/types';
+import { isValidUpiId } from '@/domain/upi';
 import { useLedger, useLedgerActions } from '@/state/ledger-store';
 
 type LedgerKind = 'party' | 'category';
 
 const KIND_CHOICES = [
-  { value: 'party' as const, label: 'Customer / Supplier' },
-  { value: 'category' as const, label: 'Income / Expense' },
+  { value: 'party' as const, label: 'Customer/S' },
+  { value: 'category' as const, label: 'Income/E' },
 ];
 
 const CATEGORY_TYPE_CHOICES: { value: AccountType; label: string }[] = [
@@ -35,6 +37,8 @@ export default function NewLedgerScreen() {
 
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
+  const [upiId, setUpiId] = useState('');
+  const [upiError, setUpiError] = useState<string | undefined>();
   const [note, setNote] = useState('');
   const [kind, setKind] = useState<LedgerKind>(params.kind === 'category' ? 'category' : 'party');
   const [categoryType, setCategoryType] = useState<AccountType>('expense');
@@ -42,6 +46,7 @@ export default function NewLedgerScreen() {
   const [error, setError] = useState<string | undefined>();
 
   const canBeShared = kind === 'category' && categoryType === 'expense';
+  const isParty = kind === 'party';
 
   const submit = () => {
     const trimmed = name.trim();
@@ -57,11 +62,18 @@ export default function NewLedgerScreen() {
       return;
     }
 
+    const trimmedUpi = upiId.trim();
+    if (isParty && trimmedUpi.length > 0 && !isValidUpiId(trimmedUpi)) {
+      setUpiError('That doesn’t look like a UPI ID. It should look like name@okaxis.');
+      return;
+    }
+
     const account = addAccount({
       name: trimmed,
       type: kind === 'party' ? 'asset' : categoryType,
       role: kind === 'party' ? 'party' : 'category',
       phone: kind === 'party' ? phone : undefined,
+      upiId: isParty ? trimmedUpi : undefined,
       note,
     });
 
@@ -83,7 +95,7 @@ export default function NewLedgerScreen() {
           contentContainerStyle={styles.content}
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}>
-          <Animated.View entering={FadeInDown.duration(280)} style={styles.form}>
+          <Animated.View entering={riseIn(0, 6, Duration.base)} style={styles.form}>
             <TextField
               label="Ledger name"
               value={name}
@@ -117,6 +129,23 @@ export default function NewLedgerScreen() {
                 wrap
               />
             )}
+
+            {isParty ? (
+              <TextField
+                label="UPI ID (optional)"
+                value={upiId}
+                onChangeText={(next) => {
+                  setUpiId(next);
+                  setUpiError(undefined);
+                }}
+                placeholder="So you can pay them from here"
+                autoCapitalize="none"
+                autoCorrect={false}
+                keyboardType="email-address"
+                error={upiError}
+                maxLength={100}
+              />
+            ) : null}
 
             {canBeShared ? (
               <ChoiceChips

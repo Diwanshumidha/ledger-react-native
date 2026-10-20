@@ -2,7 +2,7 @@ import { StyleSheet, View } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
 import { PressableScale } from '@/components/ui/pressable-scale';
-import { Radius, Spacing } from '@/constants/theme';
+import { Spacing } from '@/constants/theme';
 import { formatDateShort } from '@/domain/date';
 import { formatAmount } from '@/domain/money';
 import type { StatementLine } from '@/domain/types';
@@ -18,6 +18,8 @@ export interface StatementRowProps {
   /** True on phones: one signed amount instead of separate Dr/Cr columns. */
   compact: boolean;
   onPress: () => void;
+  /** Long press goes straight to editing the entry. */
+  onLongPress?: () => void;
 }
 
 /**
@@ -25,7 +27,13 @@ export interface StatementRowProps {
  * account book (Date | Particulars | Debit | Credit | Balance); on phones it
  * collapses to a single tinted amount with the running balance beneath.
  */
-export function StatementRow({ line, contraNames, compact, onPress }: StatementRowProps) {
+export function StatementRow({
+  line,
+  contraNames,
+  compact,
+  onPress,
+  onLongPress,
+}: StatementRowProps) {
   const theme = useTheme();
   const isDebit = line.posting.side === 'dr';
   const balanceIsDebit = line.runningBalance >= 0;
@@ -38,11 +46,13 @@ export function StatementRow({ line, contraNames, compact, onPress }: StatementR
         isDebit ? 'debit' : 'credit'
       } ${formatAmount(line.posting.amount)}`}
       onPress={onPress}
-      scaleTo={0.985}
-      style={[styles.row, { backgroundColor: theme.card, borderColor: theme.border }]}>
+      onLongPress={onLongPress}
+      accessibilityHint={onLongPress ? 'Long press to edit' : undefined}
+      scaleTo={1}
+      style={[styles.row, { borderBottomColor: theme.border }]}>
       <View style={styles.dateColumn}>
         <ThemedText type="smallBold">{formatDateShort(line.entry.date)}</ThemedText>
-        <ThemedText type="small" themeColor="textSecondary">
+        <ThemedText type="caption" themeColor="textSecondary">
           #{line.entry.voucherNo}
         </ThemedText>
       </View>
@@ -58,10 +68,10 @@ export function StatementRow({ line, contraNames, compact, onPress }: StatementR
 
       {compact ? (
         <View style={styles.compactColumn}>
-          <ThemedText style={[styles.amount, { color: amountColor }]}>
+          <ThemedText type="figure" style={[styles.amount, { color: amountColor }]}>
             {formatAmount(line.posting.amount)}
           </ThemedText>
-          <ThemedText type="small" themeColor="textSecondary" numberOfLines={1}>
+          <ThemedText type="caption" themeColor="textSecondary" numberOfLines={1}>
             {formatAmount(Math.abs(line.runningBalance))}
             {line.runningBalance === 0 ? '' : balanceIsDebit ? ' Dr' : ' Cr'}
           </ThemedText>
@@ -70,6 +80,7 @@ export function StatementRow({ line, contraNames, compact, onPress }: StatementR
         <>
           <View style={styles.amountColumn}>
             <ThemedText
+              type="figure"
               style={[styles.amount, { color: isDebit ? theme.negative : theme.textSecondary }]}>
               {isDebit ? formatAmount(line.posting.amount) : '—'}
             </ThemedText>
@@ -77,16 +88,17 @@ export function StatementRow({ line, contraNames, compact, onPress }: StatementR
 
           <View style={styles.amountColumn}>
             <ThemedText
+              type="figure"
               style={[styles.amount, { color: isDebit ? theme.textSecondary : theme.positive }]}>
               {isDebit ? '—' : formatAmount(line.posting.amount)}
             </ThemedText>
           </View>
 
           <View style={styles.balanceColumn}>
-            <ThemedText type="smallBold" numberOfLines={1}>
+            <ThemedText type="figure" style={styles.balance} numberOfLines={1}>
               {formatAmount(Math.abs(line.runningBalance))}
             </ThemedText>
-            <ThemedText type="small" themeColor="textSecondary">
+            <ThemedText type="caption" themeColor="textSecondary">
               {line.runningBalance === 0 ? '—' : balanceIsDebit ? 'Dr' : 'Cr'}
             </ThemedText>
           </View>
@@ -101,7 +113,7 @@ export function StatementHeader({ compact }: { compact: boolean }) {
   const theme = useTheme();
 
   return (
-    <View style={[styles.row, styles.header, { borderColor: theme.border }]}>
+    <View style={[styles.row, styles.header, { borderBottomColor: theme.text }]}>
       <View style={styles.dateColumn}>
         <ThemedText type="small" themeColor="textSecondary">
           Date
@@ -150,17 +162,14 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.two,
-    paddingVertical: Spacing.two,
-    paddingHorizontal: Spacing.two,
-    borderRadius: Radius.small,
-    borderWidth: StyleSheet.hairlineWidth,
-  },
-  header: {
-    backgroundColor: 'transparent',
-    borderWidth: 0,
+    paddingVertical: Spacing.three - 4,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderRadius: 0,
+  },
+  /** Column heads are ruled off in ink, like the top of a ledger page. */
+  header: {
+    paddingTop: 0,
     paddingBottom: Spacing.two,
+    borderBottomWidth: 1,
   },
   headerEnd: {
     alignItems: 'flex-end',
@@ -186,10 +195,12 @@ const styles = StyleSheet.create({
   },
   narration: {
     fontSize: 15,
-    fontWeight: '600',
+    fontWeight: '500',
   },
   amount: {
     fontSize: 15,
-    fontWeight: '700',
+  },
+  balance: {
+    fontSize: 14,
   },
 });

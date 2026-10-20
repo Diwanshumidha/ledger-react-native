@@ -1,9 +1,10 @@
 import { StyleSheet, View } from 'react-native';
-import Animated, { FadeIn, LinearTransition } from 'react-native-reanimated';
+import Animated from 'react-native-reanimated';
 
 import { ThemedText } from '@/components/themed-text';
 import { Avatar } from '@/components/ui/avatar';
 import { PressableScale } from '@/components/ui/pressable-scale';
+import { Duration, fadeIn, settle } from '@/constants/motion';
 import { Radius, Spacing } from '@/constants/theme';
 import type { SharedLedgerSummary } from '@/domain/accounting';
 import { formatMoney } from '@/domain/money';
@@ -27,8 +28,8 @@ export function SplitGroupCard({ group, summary, accountById, onEdit }: SplitGro
 
   return (
     <Animated.View
-      entering={FadeIn.duration(280)}
-      layout={LinearTransition}
+      entering={fadeIn(0, Duration.base)}
+      layout={settle}
       style={[styles.card, { backgroundColor: theme.card, borderColor: theme.border }]}>
       <View style={styles.header}>
         <View style={styles.headerText}>

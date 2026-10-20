@@ -1,5 +1,4 @@
 import { ScrollView, StyleSheet, View } from 'react-native';
-import Animated, { useAnimatedStyle, useDerivedValue, withTiming } from 'react-native-reanimated';
 
 import { ThemedText } from '@/components/themed-text';
 import { PressableScale } from '@/components/ui/pressable-scale';
@@ -20,7 +19,7 @@ export interface ChoiceChipsProps<T extends string> {
   wrap?: boolean;
 }
 
-/** Single-select chip row, animated on selection. */
+/** Single-select chip row. The selected chip is filled with ink. */
 export function ChoiceChips<T extends string>({
   label,
   choices,
@@ -67,33 +66,24 @@ interface ChipProps {
 
 function Chip({ label, isSelected, onPress }: ChipProps) {
   const theme = useTheme();
-  const progress = useDerivedValue(() => withTiming(isSelected ? 1 : 0, { duration: 170 }));
-
-  const animatedStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: 1 + progress.value * 0.03 }],
-  }));
 
   return (
     <PressableScale
       accessibilityRole="radio"
       accessibilityState={{ selected: isSelected }}
       onPress={onPress}
-      scaleTo={0.94}>
-      <Animated.View
-        style={[
-          styles.chip,
-          animatedStyle,
-          {
-            borderColor: isSelected ? theme.accent : theme.border,
-            backgroundColor: isSelected ? theme.accentSoft : theme.card,
-          },
-        ]}>
-        <ThemedText
-          type="smallBold"
-          style={{ color: isSelected ? theme.accent : theme.textSecondary }}>
-          {label}
-        </ThemedText>
-      </Animated.View>
+      style={[
+        styles.chip,
+        {
+          borderColor: isSelected ? theme.accent : theme.border,
+          backgroundColor: isSelected ? theme.accent : 'transparent',
+        },
+      ]}>
+      <ThemedText
+        type="smallBold"
+        style={{ color: isSelected ? theme.onAccent : theme.textSecondary }}>
+        {label}
+      </ThemedText>
     </PressableScale>
   );
 }
@@ -113,7 +103,7 @@ const styles = StyleSheet.create({
   },
   chip: {
     paddingHorizontal: Spacing.three,
-    paddingVertical: Spacing.two,
+    paddingVertical: Spacing.two - 1,
     borderRadius: Radius.pill,
     borderWidth: 1,
   },

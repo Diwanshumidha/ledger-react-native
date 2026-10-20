@@ -1,7 +1,7 @@
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { useMemo, useState } from 'react';
 import { ScrollView, StyleSheet, View } from 'react-native';
-import Animated, { LinearTransition } from 'react-native-reanimated';
+import Animated from 'react-native-reanimated';
 
 import { AccountPickerSheet } from '@/components/ledger/account-picker-sheet';
 import { ThemedText } from '@/components/themed-text';
@@ -11,6 +11,7 @@ import { ChoiceChips } from '@/components/ui/choice-chips';
 import { EmptyState } from '@/components/ui/empty-state';
 import { PressableScale } from '@/components/ui/pressable-scale';
 import { Screen } from '@/components/ui/screen';
+import { settle } from '@/constants/motion';
 import { Radius, Spacing } from '@/constants/theme';
 import type { Account, SplitMethod } from '@/domain/types';
 import { useTheme } from '@/hooks/use-theme';
@@ -132,7 +133,7 @@ export default function SplitGroupScreen() {
               return (
                 <Animated.View
                   key={memberId}
-                  layout={LinearTransition.springify().damping(18)}
+                  layout={settle}
                   style={[styles.memberRow, { backgroundColor: theme.card, borderColor: theme.border }]}>
                   <Avatar name={member.name} hue={member.hue} size={36} />
                   <ThemedText type="smallBold" style={styles.memberName} numberOfLines={1}>

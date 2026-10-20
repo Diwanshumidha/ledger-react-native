@@ -1,9 +1,10 @@
 import { Platform, StyleSheet, TextInput, View } from 'react-native';
-import Animated, { FadeInDown, FadeOutUp, LinearTransition } from 'react-native-reanimated';
+import Animated from 'react-native-reanimated';
 
 import { ThemedText } from '@/components/themed-text';
 import { PressableScale } from '@/components/ui/pressable-scale';
-import { Radius, Spacing } from '@/constants/theme';
+import { Duration, fadeOut, riseIn, settle } from '@/constants/motion';
+import { FontFaces, Radius, Spacing } from '@/constants/theme';
 import { CurrencySymbol } from '@/domain/money';
 import type { PostingSide } from '@/domain/types';
 import { useTheme } from '@/hooks/use-theme';
@@ -39,9 +40,9 @@ export function PostingLineEditor({
 
   return (
     <Animated.View
-      entering={FadeInDown.duration(220)}
-      exiting={FadeOutUp.duration(160)}
-      layout={LinearTransition.springify().damping(18)}
+      entering={riseIn(0, 6, Duration.base)}
+      exiting={fadeOut}
+      layout={settle}
       style={[styles.container, { backgroundColor: theme.card, borderColor: theme.border }]}>
       <PressableScale
         accessibilityRole="button"
@@ -136,7 +137,8 @@ const styles = StyleSheet.create({
   amountInput: {
     flex: 1,
     fontSize: 15,
-    fontWeight: '600',
+    fontFamily: FontFaces.body[600],
+    fontVariant: ['tabular-nums'],
     textAlign: 'right',
     paddingVertical: 0,
   },

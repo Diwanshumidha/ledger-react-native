@@ -1,7 +1,7 @@
 import { useRouter } from 'expo-router';
 import { useMemo, useState, type ReactNode } from 'react';
 import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, View } from 'react-native';
-import Animated, { FadeIn, FadeInDown, LinearTransition } from 'react-native-reanimated';
+import Animated from 'react-native-reanimated';
 
 import { AccountPickerSheet } from '@/components/ledger/account-picker-sheet';
 import { AmountField } from '@/components/ledger/amount-field';
@@ -12,6 +12,7 @@ import { ChoiceChips } from '@/components/ui/choice-chips';
 import { EmptyState } from '@/components/ui/empty-state';
 import { PressableScale } from '@/components/ui/pressable-scale';
 import { TextField } from '@/components/ui/text-field';
+import { Duration, fadeIn, riseIn, settle } from '@/constants/motion';
 import { Radius, Spacing } from '@/constants/theme';
 import { formatDateLong, shiftCalendarDate, today } from '@/domain/date';
 import { formatAmount, formatMoney, parseMoney } from '@/domain/money';
@@ -225,7 +226,7 @@ export function SplitExpenseComposer({
 
           {payer ? (
             <Animated.View
-              entering={FadeIn.duration(200)}
+              entering={fadeIn(0, Duration.base)}
               style={[styles.note, { backgroundColor: theme.backgroundElement }]}>
               <ThemedText type="small" themeColor="textSecondary">
                 {describeSplit(validation, payer.name)}
@@ -360,7 +361,7 @@ export function SplitExpenseComposer({
           </View>
 
           {error ? (
-            <Animated.View entering={FadeInDown.duration(200)}>
+            <Animated.View entering={riseIn(0, 6, Duration.base)}>
               <ThemedText type="small" style={{ color: theme.negative }}>
                 {error}
               </ThemedText>
@@ -479,8 +480,8 @@ function SplitPreview({ postings, nameFor }: SplitPreviewProps) {
 
   return (
     <Animated.View
-      entering={FadeInDown.duration(240)}
-      layout={LinearTransition}
+      entering={riseIn(0, 6, Duration.base)}
+      layout={settle}
       style={[styles.preview, { backgroundColor: theme.backgroundElement }]}>
       <ThemedText type="small" themeColor="textSecondary">
         Will be recorded as

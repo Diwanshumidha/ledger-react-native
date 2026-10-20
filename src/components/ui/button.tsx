@@ -5,12 +5,22 @@ import { PressableScale } from '@/components/ui/pressable-scale';
 import { Radius, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 
-export type ButtonVariant = 'primary' | 'secondary' | 'ghost' | 'danger';
+export type ButtonVariant = 'primary'
+  | 'secondary'
+  | 'ghost'
+  /** Destructive but quiet: red text on a pale wash. */
+  | 'danger'
+  /** Solid red ink, for "You gave". */
+  | 'negative'
+  /** Solid ledger green, for "You got". */
+  | 'positive';
 
 export interface ButtonProps {
   label: string;
   onPress: () => void;
   variant?: ButtonVariant;
+  /** `small` for actions that sit beside a heading rather than below a form. */
+  size?: 'regular' | 'small';
   disabled?: boolean;
   busy?: boolean;
   style?: StyleProp<ViewStyle>;
@@ -21,6 +31,7 @@ export function Button({
   label,
   onPress,
   variant = 'primary',
+  size = 'regular',
   disabled = false,
   busy = false,
   style,
@@ -34,6 +45,8 @@ export function Button({
     secondary: { backgroundColor: theme.backgroundElement },
     ghost: { backgroundColor: 'transparent', borderWidth: 1, borderColor: theme.border },
     danger: { backgroundColor: theme.negativeSoft },
+    negative: { backgroundColor: theme.negative },
+    positive: { backgroundColor: theme.positive },
   };
 
   const labelColor: Record<ButtonVariant, string> = {
@@ -41,6 +54,8 @@ export function Button({
     secondary: theme.text,
     ghost: theme.text,
     danger: theme.negative,
+    negative: theme.onAccent,
+    positive: theme.onAccent,
   };
 
   return (
@@ -50,11 +65,20 @@ export function Button({
       accessibilityState={{ disabled: isInactive }}
       disabled={isInactive}
       onPress={onPress}
-      style={[styles.button, surface[variant], isInactive && styles.inactive, style]}>
+      style={[
+        styles.button,
+        size === 'small' && styles.small,
+        surface[variant],
+        isInactive && styles.inactive,
+        style,
+      ]}>
       {busy ? (
         <ActivityIndicator color={labelColor[variant]} size="small" />
       ) : (
-        <ThemedText style={[styles.label, { color: labelColor[variant] }]}>{label}</ThemedText>
+        <ThemedText
+          style={[styles.label, size === 'small' && styles.smallLabel, { color: labelColor[variant] }]}>
+          {label}
+        </ThemedText>
       )}
     </PressableScale>
   );
@@ -71,9 +95,17 @@ const styles = StyleSheet.create({
   },
   label: {
     fontSize: 16,
-    fontWeight: '700',
+    fontWeight: '600',
+  },
+  small: {
+    minHeight: 34,
+    paddingHorizontal: Spacing.three - 4,
+    borderRadius: Radius.small,
+  },
+  smallLabel: {
+    fontSize: 14,
   },
   inactive: {
-    opacity: 0.45,
+    opacity: 0.4,
   },
 });

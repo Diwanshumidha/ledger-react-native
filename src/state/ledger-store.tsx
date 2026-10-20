@@ -13,7 +13,7 @@ import { ledgerRepository, SNAPSHOT_VERSION, type LedgerRepository } from '@/dat
 import { validatePostings } from '@/domain/accounting';
 import { today } from '@/domain/date';
 import { emptySnapshot, withSystemAccounts } from '@/domain/seed';
-import type { Account, JournalEntry, LedgerSnapshot, Posting } from '@/domain/types';
+import type { Account, JournalEntry, LedgerSnapshot, Posting, Profile } from '@/domain/types';
 
 const PERSIST_DEBOUNCE_MS = 250;
 
@@ -34,7 +34,13 @@ type LedgerAction =
   | { type: 'accountUpdated'; id: string; changes: Partial<Account> }
   | { type: 'accountDeleted'; id: string }
   | { type: 'entryAdded'; entry: JournalEntry }
+  | {
+      type: 'entryUpdated';
+      id: string;
+      changes: Pick<JournalEntry, 'date' | 'narration' | 'postings'>;
+    }
   | { type: 'entryDeleted'; id: string }
+  | { type: 'profileUpdated'; profile: Profile }
   | { type: 'reset'; snapshot: LedgerSnapshot };
 
 function reducer(state: LedgerState, action: LedgerAction): LedgerState {
@@ -89,6 +95,25 @@ function reducer(state: LedgerState, action: LedgerAction): LedgerState {
         },
       };
 
+    case 'entryUpdated':
+      return {
+        ...state,
+        snapshot: {
+          ...state.snapshot,
+          // Voucher number and creation time stay: an edit corrects the
+          // record, it does not make a new one.
+          entries: state.snapshot.entries.map((entry) =>
+            entry.id === action.id ? { ...entry, ...action.changes } : entry,
+          ),
+        },
+      };
+
+    case 'profileUpdated':
+      return {
+        ...state,
+        snapshot: { ...state.snapshot, profile: action.profile },
+      };
+
     case 'entryDeleted':
       return {
         ...state,
@@ -105,6 +130,7 @@ export interface NewAccountInput {
   type: Account['type'];
   role: Account['role'];
   phone?: string;
+  upiId?: string;
   note?: string;
 }
 
@@ -120,7 +146,10 @@ export interface LedgerActions {
   deleteAccount(id: string): void;
   /** Throws if the postings are unbalanced — the invariant is enforced here. */
   addEntry(input: NewEntryInput): JournalEntry;
+  /** Replaces an entry's date, narration and postings. Throws if unbalanced. */
+  updateEntry(id: string, input: NewEntryInput): void;
   deleteEntry(id: string): void;
+  updateProfile(profile: Profile): void;
   resetBook(): void;
 }
 
@@ -195,6 +224,7 @@ export function LedgerProvider({ children, repository = ledgerRepository }: Ledg
       type: input.type,
       role: input.role,
       phone: input.phone?.trim() || undefined,
+      upiId: input.upiId?.trim() || undefined,
       note: input.note?.trim() || undefined,
       isSystem: false,
       hue: Math.floor(Math.random() * 360),
@@ -232,8 +262,28 @@ export function LedgerProvider({ children, repository = ledgerRepository }: Ledg
     [nextVoucherNo],
   );
 
+  const updateEntry = useCallback((id: string, input: NewEntryInput) => {
+    const validation = validatePostings(input.postings);
+    if (!validation.isValid) {
+      throw new Error(validation.errors.join(' '));
+    }
+    dispatch({
+      type: 'entryUpdated',
+      id,
+      changes: {
+        date: input.date ?? today(),
+        narration: input.narration.trim(),
+        postings: input.postings,
+      },
+    });
+  }, []);
+
   const deleteEntry = useCallback((id: string) => {
     dispatch({ type: 'entryDeleted', id });
+  }, []);
+
+  const updateProfile = useCallback((profile: Profile) => {
+    dispatch({ type: 'profileUpdated', profile });
   }, []);
 
   const resetBook = useCallback(() => {
@@ -249,7 +299,9 @@ export function LedgerProvider({ children, repository = ledgerRepository }: Ledg
         updateAccount,
         deleteAccount,
         addEntry,
+        updateEntry,
         deleteEntry,
+        updateProfile,
         resetBook,
       },
     }),
@@ -260,7 +312,9 @@ export function LedgerProvider({ children, repository = ledgerRepository }: Ledg
       updateAccount,
       deleteAccount,
       addEntry,
+      updateEntry,
       deleteEntry,
+      updateProfile,
       resetBook,
     ],
   );
@@ -283,6 +337,10 @@ export function useLedger() {
 
 export function useLedgerActions(): LedgerActions {
   return useLedgerContext().actions;
+}
+
+export function useProfile(): Profile {
+  return useLedgerContext().snapshot.profile ?? {};
 }
 
 export function useAccount(id: string | undefined): Account | undefined {
