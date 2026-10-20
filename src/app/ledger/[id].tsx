@@ -42,6 +42,7 @@ import { formatMoney, type Money } from '@/domain/money';
 import { BANK_ACCOUNT_ID } from '@/domain/seed';
 import type { SimpleDirection, StatementLine } from '@/domain/types';
 import { useTheme } from '@/hooks/use-theme';
+import { success } from '@/utils/haptics';
 import { buildUpiLink } from '@/domain/upi';
 import { useAccount, useLedger, useLedgerActions, useProfile } from '@/state/ledger-store';
 
@@ -200,6 +201,7 @@ export default function LedgerDetailScreen() {
     const settlement = buildSettlement(account.id, BANK_ACCOUNT_ID, balance, amount);
     if (settlement) {
       addEntry({ narration: 'Paid by UPI', postings: settlement.postings });
+      success();
       setNotice(`Recorded ${formatMoney(amount)} paid to ${account.name}.`);
     }
   };

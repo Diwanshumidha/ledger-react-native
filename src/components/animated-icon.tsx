@@ -1,7 +1,7 @@
 import { Image } from 'expo-image';
 import * as SplashScreen from 'expo-splash-screen';
 import { useState } from 'react';
-import { Dimensions, StyleSheet, View } from 'react-native';
+import { Dimensions, StyleSheet, useColorScheme, View } from 'react-native';
 import Animated, { Easing, Keyframe } from 'react-native-reanimated';
 import { scheduleOnRN } from 'react-native-worklets';
 
@@ -9,9 +9,17 @@ const INITIAL_SCALE_FACTOR = Dimensions.get('screen').height / 90;
 const DURATION = 600;
 const SPLASH_FADE = 520;
 
+/** Matches the native splash in app.json, so the hand-over is seamless. */
+const SPLASH_MARK_SIZE = 120;
+const SPLASH = {
+  light: { background: '#EEF2EA', mark: require('@/assets/images/splash-icon.png') },
+  dark: { background: '#111914', mark: require('@/assets/images/splash-icon-dark.png') },
+};
+
 export function AnimatedSplashOverlay() {
   const [animate, setAnimate] = useState(false);
   const [visible, setVisible] = useState(true);
+  const splash = SPLASH[useColorScheme() === 'dark' ? 'dark' : 'light'];
 
   if (!visible) return null;
 
@@ -21,7 +29,7 @@ export function AnimatedSplashOverlay() {
     100: { opacity: 0, easing: Easing.bezier(0.22, 0.61, 0.36, 1) },
   });
 
-  const image = <Image style={styles.image} source={require('@/assets/images/expo-logo.png')} />;
+  const image = <Image style={styles.splashMark} source={splash.mark} />;
 
   return animate ? (
     <Animated.View
@@ -31,7 +39,7 @@ export function AnimatedSplashOverlay() {
           scheduleOnRN(setVisible, false);
         }
       })}
-      style={styles.splashOverlay}>
+      style={[styles.splashOverlay, { backgroundColor: splash.background }]}>
       {image}
     </Animated.View>
   ) : (
@@ -41,7 +49,7 @@ export function AnimatedSplashOverlay() {
           setAnimate(true);
         });
       }}
-      style={styles.splashOverlay}>
+      style={[styles.splashOverlay, { backgroundColor: splash.background }]}>
       {image}
     </View>
   );
@@ -126,9 +134,12 @@ const styles = StyleSheet.create({
     height: 128,
     position: 'absolute',
   },
+  splashMark: {
+    width: SPLASH_MARK_SIZE,
+    height: SPLASH_MARK_SIZE,
+  },
   splashOverlay: {
     ...StyleSheet.absoluteFill,
-    backgroundColor: '#208AEF',
     alignItems: 'center',
     justifyContent: 'center',
     zIndex: 1000,

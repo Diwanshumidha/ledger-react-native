@@ -1,6 +1,6 @@
 import { useRouter } from 'expo-router';
 import { useCallback, useMemo, useRef, useState } from 'react';
-import { SectionList, StyleSheet, View } from 'react-native';
+import { Platform, SectionList, StyleSheet, View } from 'react-native';
 import Animated from 'react-native-reanimated';
 
 import { BalanceSummary } from '@/components/ledger/balance-summary';
@@ -13,6 +13,7 @@ import {
 import { ThemedText } from '@/components/themed-text';
 import { EmptyState } from '@/components/ui/empty-state';
 import { IconButton } from '@/components/ui/icon-button';
+import { LogoMark } from '@/components/ui/logo-mark';
 import { Screen } from '@/components/ui/screen';
 import { TextField } from '@/components/ui/text-field';
 import { riseIn, rowIn, settle } from '@/constants/motion';
@@ -135,7 +136,11 @@ export default function LedgersScreen() {
     <Screen>
       <Animated.View entering={riseIn(0, 6)} style={styles.header}>
         <View style={styles.headerText}>
-          <ThemedText type="title">Ledgers</ThemedText>
+          <View style={styles.titleRow}>
+            {/* On the web the top bar already carries the mark. */}
+            {Platform.OS === 'web' ? null : <LogoMark size={36} />}
+            <ThemedText type="title">Ledgers</ThemedText>
+          </View>
           <ThemedText type="small" themeColor="textSecondary">
             {parties.length === 0
               ? 'Track what you gave and what you got'
@@ -226,6 +231,12 @@ const styles = StyleSheet.create({
   headerActions: {
     flexDirection: 'row',
     gap: Spacing.two,
+  },
+  /** The mark sits on the title's cap height, like a letterhead. */
+  titleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.two + 2,
   },
   headerText: {
     flex: 1,

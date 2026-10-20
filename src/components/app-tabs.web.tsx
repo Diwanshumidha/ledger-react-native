@@ -5,6 +5,7 @@ import { ThemedText } from './themed-text';
 import { ThemedView } from './themed-view';
 
 import { MaxContentWidth, Spacing } from '@/constants/theme';
+import { LogoMark } from '@/components/ui/logo-mark';
 import { useTheme } from '@/hooks/use-theme';
 
 export default function AppTabs() {
@@ -31,9 +32,12 @@ function TabBar(props: { children?: React.ReactNode }) {
   return (
     <View {...props} style={styles.barContainer}>
       <ThemedView style={[styles.bar, { borderBottomColor: theme.border }]}>
-        <ThemedText type="heading" style={styles.brand}>
-          Ledger
-        </ThemedText>
+        <View style={styles.brand}>
+          <LogoMark size={26} />
+          <ThemedText type="heading" style={styles.brandName}>
+            Ledger
+          </ThemedText>
+        </View>
         {props.children}
       </ThemedView>
     </View>
@@ -47,10 +51,7 @@ function TabButton({ children, isFocused, ...props }: TabTriggerSlotProps) {
   return (
     <Pressable {...props} style={({ pressed }) => (pressed ? styles.pressed : undefined)}>
       <View
-        style={[
-          styles.tabButton,
-          { borderBottomColor: isFocused ? theme.text : 'transparent' },
-        ]}>
+        style={[styles.tabButton, { borderBottomColor: isFocused ? theme.text : 'transparent' }]}>
         <ThemedText type="smallBold" themeColor={isFocused ? 'text' : 'textSecondary'}>
           {children}
         </ThemedText>
@@ -82,6 +83,11 @@ const styles = StyleSheet.create({
   },
   brand: {
     marginRight: 'auto',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.two,
+  },
+  brandName: {
     fontSize: 19,
   },
   tabButton: {

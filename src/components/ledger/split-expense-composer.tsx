@@ -25,7 +25,9 @@ import {
   type ParticipantShare,
 } from '@/domain/split';
 import type { Account, SplitMethod } from '@/domain/types';
+import { frequentAmounts } from '@/domain/accounting';
 import { useTheme } from '@/hooks/use-theme';
+import { success } from '@/utils/haptics';
 import { useLedger, useLedgerActions } from '@/state/ledger-store';
 
 const METHOD_CHOICES: { value: SplitMethod; label: string }[] = [
@@ -53,7 +55,7 @@ export function SplitExpenseComposer({
 }: SplitExpenseComposerProps) {
   const router = useRouter();
   const theme = useTheme();
-  const { accounts } = useLedger();
+  const { accounts, entries } = useLedger();
   const { addEntry } = useLedgerActions();
 
   const accountById = useMemo(
@@ -93,6 +95,12 @@ export function SplitExpenseComposer({
   const [picker, setPicker] = useState<'expense' | 'payer' | 'member' | null>(null);
 
   const expense = expenseId ? accountById.get(expenseId) : undefined;
+  // A shared bill tends to repeat (the same Wi-Fi bill each month), so offer
+  // its usual totals rather than anyone's share.
+  const billAmounts = useMemo(
+    () => (expenseId ? frequentAmounts(expenseId, entries, 'total') : []),
+    [entries, expenseId],
+  );
   const payer = accountById.get(payerId);
   const total = parseMoney(totalText);
 
@@ -171,6 +179,7 @@ export function SplitExpenseComposer({
         narration: narration.trim() || defaultNarration(expense),
         postings: buildSplitPostings(splitInput),
       });
+      success();
       onSaved();
     } catch (cause) {
       reject(cause instanceof Error ? cause.message : 'Could not save this split.');
@@ -216,6 +225,7 @@ export function SplitExpenseComposer({
             }}
             autoFocus
             shakeKey={shakeKey}
+            suggestions={billAmounts}
           />
 
           <SelectRow
@@ -288,9 +298,7 @@ export function SplitExpenseComposer({
                   hue={member.hue}
                   isPayer={member.id === payerId}
                   hint={
-                    validation.payerIsMember && payer
-                      ? `settles with ${payer.name}`
-                      : undefined
+                    validation.payerIsMember && payer ? `settles with ${payer.name}` : undefined
                   }
                   isIncluded={!excluded.has(memberId)}
                   amount={shareFor(shares, memberId)}

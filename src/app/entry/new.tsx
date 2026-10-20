@@ -21,6 +21,7 @@ import {
   balanceOf,
   buildSimplePostings,
   describePartyBalance,
+  frequentAmounts,
   validatePostings,
 } from '@/domain/accounting';
 import { formatDateLong, formatDateShort, shiftCalendarDate, today } from '@/domain/date';
@@ -28,6 +29,7 @@ import { formatAmount, formatMoney, parseMoney } from '@/domain/money';
 import { CASH_ACCOUNT_ID } from '@/domain/seed';
 import type { Account, JournalEntry, Posting, SimpleDirection } from '@/domain/types';
 import { useTheme } from '@/hooks/use-theme';
+import { success } from '@/utils/haptics';
 import { useLedger, useLedgerActions } from '@/state/ledger-store';
 
 type ComposerMode = 'simple' | 'split' | 'advanced';
@@ -201,6 +203,12 @@ function NewEntryComposer() {
 
   const validation = useMemo(() => validatePostings(draftPostings), [draftPostings]);
 
+  /** What usually changes hands with this person, for one-tap chips. */
+  const partyAmounts = useMemo(
+    () => (partyId ? frequentAmounts(partyId, entries) : []),
+    [entries, partyId],
+  );
+
   const reject = (message: string) => {
     setError(message);
     setShakeKey((key) => key + 1);
@@ -241,6 +249,7 @@ function NewEntryComposer() {
       } else {
         addEntry(input);
       }
+      success();
       close();
     } catch (cause) {
       reject(cause instanceof Error ? cause.message : 'Could not save this entry.');
@@ -346,6 +355,7 @@ function NewEntryComposer() {
                 tint={directionTint}
                 autoFocus
                 shakeKey={shakeKey}
+                suggestions={partyAmounts}
               />
 
               <SelectRow

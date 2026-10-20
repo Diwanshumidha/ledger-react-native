@@ -44,10 +44,20 @@ export function formatAmount(minor: Money): string {
 }
 
 /**
- * Parses user input ("1,250.50", "1250", "") into minor units.
+ * Parses user input ("1,250.50", "1250", "") into minor units. A sum such as
+ * "450+120+80" is worked out — see `evaluateAmount`.
  * Returns 0 for anything unparseable so the caller can rely on validation instead.
  */
 export function parseMoney(input: string): Money {
+  if (hasArithmetic(input)) {
+    const result = evaluateAmount(input);
+    return result !== null && result > 0 ? result : 0;
+  }
+  return parsePlainAmount(input);
+}
+
+/** One number, no arithmetic: "1,250.50" → 125050. */
+function parsePlainAmount(input: string): Money {
   const cleaned = input.replace(/[^0-9.]/g, '');
   if (cleaned.length === 0) {
     return 0;
@@ -64,4 +74,83 @@ export function parseMoney(input: string): Money {
 
 export function isPositiveAmount(minor: Money): boolean {
   return Number.isInteger(minor) && minor > 0;
+}
+
+/** The operators the amount calculator accepts, as typed or as shown. */
+const OPERATOR = /[+\-*/×÷−]/;
+
+/** True when the text is a sum to work out rather than a single number. */
+export function hasArithmetic(input: string): boolean {
+  // A digit then an operator: "450+…". A lone leading "-" is not a sum.
+  return /[0-9.]\s*[+\-*/×÷−]/.test(input);
+}
+
+/**
+ * Works out a small sum typed into an amount: "450+120+80", "1200÷4",
+ * "350×3−50". × and ÷ bind tighter than + and −, as on a calculator.
+ *
+ * Amounts are added and subtracted in whole paise, so they stay exact; only
+ * × and ÷ round, to the nearest paisa. A trailing operator ("450+") is
+ * ignored so the total shows while the next number is still being typed.
+ * Returns null when the text is not a sum it understands, or divides by 0.
+ */
+export function evaluateAmount(input: string): Money | null {
+  const normalised = input
+    .replace(/[,\s]/g, '')
+    .replace(/[×xX]/g, '*')
+    .replace(/÷/g, '/')
+    .replace(/−/g, '-')
+    .replace(/[+\-*/]+$/, '');
+
+  if (
+    normalised.length === 0 ||
+    !/^[0-9.+\-*/]+$/.test(normalised) ||
+    OPERATOR.test(normalised[0])
+  ) {
+    return null;
+  }
+
+  const tokens = normalised.match(/[0-9]*\.?[0-9]+|[0-9]+\.?|[+\-*/]/g);
+  if (!tokens || tokens.join('') !== normalised) {
+    return null;
+  }
+
+  let total = 0;
+  // The running term: an amount in paise, then scaled by any × and ÷.
+  let term: number | null = null;
+  let sign = 1;
+  let pending: '*' | '/' | null = null;
+
+  for (const token of tokens) {
+    if (token === '+' || token === '-') {
+      if (term === null || pending !== null) {
+        return null;
+      }
+      total += sign * term;
+      term = null;
+      sign = token === '+' ? 1 : -1;
+    } else if (token === '*' || token === '/') {
+      if (term === null || pending !== null) {
+        return null;
+      }
+      pending = token;
+    } else if (term === null) {
+      term = parsePlainAmount(token);
+    } else if (pending !== null) {
+      // The right side of × or ÷ is a plain quantity: "450×3" is ₹450 three times.
+      const factor = Number(token);
+      if (pending === '/' && factor === 0) {
+        return null;
+      }
+      term = Math.round(pending === '*' ? term * factor : term / factor);
+      pending = null;
+    } else {
+      return null;
+    }
+  }
+
+  if (term === null || pending !== null) {
+    return null;
+  }
+  return total + sign * term;
 }

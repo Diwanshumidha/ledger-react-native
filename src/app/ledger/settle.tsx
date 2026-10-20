@@ -17,6 +17,7 @@ import { balanceOf, buildSettlement } from '@/domain/accounting';
 import { formatMoney, parseMoney, type Money } from '@/domain/money';
 import { CASH_ACCOUNT_ID } from '@/domain/seed';
 import { useTheme } from '@/hooks/use-theme';
+import { success } from '@/utils/haptics';
 import { useAccount, useLedger, useLedgerActions } from '@/state/ledger-store';
 
 /** Minor units as an editable figure: "8400", or "8400.50" with paise. */
@@ -103,6 +104,7 @@ function SettleComposer() {
       narration: note.trim() || (remaining === 0 ? 'Settled up' : 'Part payment'),
       postings: settlement.postings,
     });
+    success();
     router.back();
   };
 

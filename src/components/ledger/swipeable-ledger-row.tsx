@@ -11,6 +11,7 @@ import { ThemedText } from '@/components/themed-text';
 import { Duration, Ease, TimingBase } from '@/constants/motion';
 import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
+import { tick } from '@/utils/haptics';
 
 const ACTION_WIDTH = 88;
 /** Movement under this (points) still counts as a tap. */
@@ -79,9 +80,14 @@ export function SwipeableLedgerRow({ actions, onOpen, ...rowProps }: SwipeableLe
     };
 
     const settleTo = (open: boolean) => {
+      const wasOpen = isOpen.current;
       isOpen.current = open;
       translateX.value = withTiming(open ? -latest.current.openWidth : 0, TimingBase);
       if (open) {
+        // Felt only when a swipe actually opens, not on every drag.
+        if (!wasOpen) {
+          tick();
+        }
         latest.current.onOpen(handle);
       }
     };

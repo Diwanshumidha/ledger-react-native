@@ -214,9 +214,7 @@ export function summariseSharedLedger(
   let billedTotal = 0;
 
   for (const entry of entries) {
-    const touchesLedger = entry.postings.some(
-      (posting) => posting.accountId === expenseAccountId,
-    );
+    const touchesLedger = entry.postings.some((posting) => posting.accountId === expenseAccountId);
     if (!touchesLedger) {
       continue;
     }
@@ -331,4 +329,44 @@ export function splitAtLastSettlement(statement: StatementLine[]): StatementPeri
     settled: statement.slice(index),
     settledOn: statement[index].entry.date,
   };
+}
+
+/**
+ * The amounts that come up most with a ledger, most frequent first and the
+ * more recent breaking ties — for one-tap amount chips.
+ *
+ * `share` counts what this ledger was posted (what a person gave or got);
+ * `total` counts whole entries, which suits a shared bill split many ways.
+ */
+export function frequentAmounts(
+  accountId: string,
+  entries: JournalEntry[],
+  measure: 'share' | 'total' = 'share',
+  limit = 4,
+): Money[] {
+  const tally = new Map<Money, { count: number; lastSeen: string }>();
+
+  for (const entry of entries) {
+    const own = entry.postings.filter((posting) => posting.accountId === accountId);
+    if (own.length === 0) {
+      continue;
+    }
+    const amount =
+      measure === 'total'
+        ? totalFor(entry.postings, 'dr')
+        : own.reduce((sum, posting) => sum + posting.amount, 0);
+    const seen = `${entry.date}|${entry.createdAt}`;
+    const current = tally.get(amount);
+    tally.set(amount, {
+      count: (current?.count ?? 0) + 1,
+      lastSeen: current && current.lastSeen > seen ? current.lastSeen : seen,
+    });
+  }
+
+  return [...tally.entries()]
+    .sort(([, a], [, b]) =>
+      b.count !== a.count ? b.count - a.count : b.lastSeen.localeCompare(a.lastSeen),
+    )
+    .slice(0, limit)
+    .map(([amount]) => amount);
 }
